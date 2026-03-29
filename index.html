@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MissionForge — Agent-Company-Spawner & Orchestrierungs-Engine</title>
+    <meta name="description" content="MissionForge verwandelt jede Aufgabe in eine lebende Organisation aus spezialisierten KI-Agenten mit garantierter Vollständigkeit und Qualitätssicherung.">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a2e;
+            --bg-card-hover: #22223a;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+            --accent-glow: rgba(108, 92, 231, 0.3);
+            --text-primary: #e8e8f0;
+            --text-secondary: #9898b0;
+            --text-muted: #6868880;
+            --border: #2a2a3e;
+            --success: #00cec9;
+            --warning: #fdcb6e;
+            --danger: #e17055;
+            --gradient-1: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            --gradient-2: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(108, 92, 231, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(108, 92, 231, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .bg-glow-1 { top: -200px; left: -100px; background: #6c5ce7; }
+        .bg-glow-2 { bottom: -200px; right: -100px; background: #a29bfe; }
+        .bg-glow-3 { top: 50%; left: 50%; transform: translate(-50%, -50%); background: #6c5ce7; opacity: 0.05; width: 900px; height: 900px; }
+
+        /* Nav */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            padding: 1rem 2rem;
+            backdrop-filter: blur(20px);
+            background: rgba(10, 10, 15, 0.8);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        .nav-logo .icon { font-size: 1.5rem; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--accent-light); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.7rem 1.4rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.25s;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: var(--gradient-1);
+            color: #fff;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(108, 92, 231, 0.5);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--accent-light);
+            border: 1px solid var(--accent);
+        }
+        .btn-outline:hover {
+            background: rgba(108, 92, 231, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Hero */
+        .hero {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+        }
+        .hero-content { max-width: 900px; }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            background: rgba(108, 92, 231, 0.1);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            color: var(--accent-light);
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            letter-spacing: 0.05em;
+        }
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.03em;
+        }
+        .hero h1 .gradient {
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 680px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.7;
+        }
+        .hero-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+        .hero-visual {
+            margin-top: 4rem;
+            position: relative;
+        }
+        .terminal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            text-align: left;
+            max-width: 700px;
+            margin: 0 auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1rem;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border);
+        }
+        .terminal-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+        }
+        .terminal-dot.r { background: #e17055; }
+        .terminal-dot.y { background: #fdcb6e; }
+        .terminal-dot.g { background: #00cec9; }
+        .terminal-title {
+            margin-left: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .terminal-body {
+            padding: 1.2rem 1.5rem;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+        .terminal-body .prompt { color: var(--success); }
+        .terminal-body .cmd { color: var(--text-primary); }
+        .terminal-body .comment { color: var(--text-secondary); font-style: italic; }
+        .terminal-body .output { color: var(--accent-light); }
+        .terminal-body .status { color: var(--success); }
+
+        /* Section */
+        section {
+            position: relative;
+            z-index: 1;
+            padding: 6rem 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section-label {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent-light);
+            margin-bottom: 1rem;
+        }
+        .section-title {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+        .section-desc {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            line-height: 1.7;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+        .feature-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(108, 92, 231, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+        .feature-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            margin-bottom: 1.2rem;
+            background: rgba(108, 92, 231, 0.1);
+            border: 1px solid rgba(108, 92, 231, 0.2);
+        }
+        .feature-card h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Phases */
+        .phases {
+            display: grid;
+            gap: 0;
+            margin-top: 3rem;
+            position: relative;
+        }
+        .phase-item {
+            display: grid;
+            grid-template-columns: 60px 1fr;
+            gap: 1.5rem;
+            align-items: start;
+            padding: 2rem 0;
+        }
+        .phase-number {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1rem;
+            background: var(--gradient-1);
+            color: #fff;
+            position: relative;
+            z-index: 2;
+        }
+        .phase-item:not(:last-child) .phase-number::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: calc(100% + 2rem);
+            background: linear-gradient(to bottom, var(--accent), transparent);
+        }
+        .phase-content h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+        .phase-content p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Manifest Types */
+        .manifest-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 1rem;
+            margin-top: 3rem;
+        }
+        .manifest-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .manifest-card:hover {
+            border-color: rgba(108, 92, 231, 0.4);
+            transform: translateY(-3px);
+        }
+        .manifest-card .emoji { font-size: 2rem; margin-bottom: 0.8rem; display: block; }
+        .manifest-card h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .manifest-card p { font-size: 0.8rem; color: var(--text-secondary); }
+
+        /* Code block */
+        .code-section { margin-top: 3rem; }
+        .code-block {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem 1.2rem;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .code-body {
+            padding: 1.2rem 1.5rem;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.82rem;
+            line-height: 1.7;
+            overflow-x: auto;
+        }
+        .code-body .kw { color: var(--accent-light); }
+        .code-body .str { color: var(--success); }
+        .code-body .cmt { color: #5a5a7a; }
+        .code-body .fn { color: #fdcb6e; }
+
+        /* Stats */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 0.3rem;
+        }
+
+        /* CTA */
+        .cta-section {
+            text-align: center;
+            padding: 6rem 2rem;
+        }
+        .cta-box {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4rem 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-box::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: -2px; right: -2px; bottom: -2px;
+            background: var(--gradient-1);
+            border-radius: 21px;
+            z-index: -1;
+            opacity: 0.15;
+        }
+        .cta-box h2 { font-size: 2rem; font-weight: 800; margin-bottom: 1rem; }
+        .cta-box p { color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.05rem; }
+
+        /* Footer */
+        footer {
+            position: relative;
+            z-index: 1;
+            border-top: 1px solid var(--border);
+            padding: 2rem;
+            text-align: center;
+        }
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .footer-inner p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        .footer-inner a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+        .footer-inner a:hover { text-decoration: underline; }
+        .footer-links { display: flex; gap: 1.5rem; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero { padding: 7rem 1.5rem 3rem; }
+            .features-grid { grid-template-columns: 1fr; }
+            .manifest-grid { grid-template-columns: repeat(2, 1fr); }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .cta-box { padding: 2.5rem 1.5rem; }
+            .footer-inner { flex-direction: column; text-align: center; }
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate { animation: fadeUp 0.6s ease-out forwards; }
+        .delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+
+        /* Scroll animation observer */
+        .reveal { opacity: 0; transform: translateY(20px); transition: all 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow bg-glow-1"></div>
+<div class="bg-glow bg-glow-2"></div>
+<div class="bg-glow bg-glow-3"></div>
+
+<!-- Nav -->
+<nav>
+    <div class="nav-inner">
+        <a href="#" class="nav-logo">
+            <span class="icon">&#9881;</span>
+            <span>MissionForge</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#phases">Phasen</a></li>
+            <li><a href="#manifests">Architektur</a></li>
+            <li><a href="#quickstart">Quickstart</a></li>
+        </ul>
+        <a href="https://github.com/GodModeAI2025/MissionForge" class="btn btn-primary" target="_blank">
+            &#9733; GitHub
+        </a>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-content">
+        <div class="hero-badge animate delay-1">
+            <span class="pulse">&#9679;</span>
+            v3.0 &mdash; Claude Skill for Agentic Orchestration
+        </div>
+        <h1 class="animate delay-2">
+            Jede Aufgabe.<br>
+            <span class="gradient">Eine lebende Organisation.</span>
+        </h1>
+        <p class="animate delay-3">
+            MissionForge verwandelt beliebige Aufgabenbeschreibungen in vollständige
+            Agent-Companies mit Orchestrator-Hierarchie, Skill-Zuordnung und
+            lückenloser Aufgabenverfolgung. Nichts wird vergessen.
+        </p>
+        <div class="hero-buttons animate delay-4">
+            <a href="https://github.com/GodModeAI2025/MissionForge" class="btn btn-primary" target="_blank">
+                &#128640; Repository öffnen
+            </a>
+            <a href="#quickstart" class="btn btn-outline">
+                Quickstart &darr;
+            </a>
+        </div>
+
+        <div class="hero-visual animate delay-4">
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="terminal-dot r"></span>
+                    <span class="terminal-dot y"></span>
+                    <span class="terminal-dot g"></span>
+                    <span class="terminal-title">Claude &mdash; MissionForge Session</span>
+                </div>
+                <div class="terminal-body">
+                    <div><span class="prompt">Du&gt;</span> <span class="cmd">Spawne eine Company für die Entwicklung einer REST-API</span></div>
+                    <br>
+                    <div><span class="comment"># Phase 1 &mdash; Aufgabenanalyse</span></div>
+                    <div><span class="output">&#10003; 5 Anforderungen erkannt, 8 Arbeitspakete geschnitten</span></div>
+                    <div><span class="comment"># Phase 2 &mdash; Company spawnen</span></div>
+                    <div><span class="output">&#10003; 3 Teams erstellt: Planung, Ausführung, Verifikation</span></div>
+                    <div><span class="comment"># Phase 5 &mdash; Wellenplanung</span></div>
+                    <div><span class="output">&#10003; 3 Wellen geplant, 5 Agenten zugewiesen</span></div>
+                    <div><span class="status">&#9889; Warte auf Freigabe ...</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats -->
+<section>
+    <div class="container">
+        <div class="stats-row">
+            <div class="stat-card reveal">
+                <div class="stat-number">9</div>
+                <div class="stat-label">Orchestrierungs-Phasen</div>
+            </div>
+            <div class="stat-card reveal">
+                <div class="stat-number">6</div>
+                <div class="stat-label">Manifest-Typen</div>
+            </div>
+            <div class="stat-card reveal">
+                <div class="stat-number">5</div>
+                <div class="stat-label">Verifikations-Ebenen</div>
+            </div>
+            <div class="stat-card reveal">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Vergessene Aufgaben (Zero-Drop)</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+    <div class="container">
+        <span class="section-label">Leistungsmerkmale</span>
+        <h2 class="section-title">Warum MissionForge?</h2>
+        <p class="section-desc">
+            Komplexe Aufgaben scheitern nicht an fehlender Intelligenz, sondern an
+            fehlender Struktur. MissionForge liefert die Organisationsebene.
+        </p>
+
+        <div class="features-grid">
+            <div class="feature-card reveal">
+                <div class="feature-icon">&#127981;</div>
+                <h3>Company Spawning</h3>
+                <p>Aus einer Aufgabenbeschreibung entsteht eine vollständige Organisation mit Teams, Agenten, Rollen und Governance — automatisch strukturiert.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon">&#128279;</div>
+                <h3>Zero-Drop-Garantie</h3>
+                <p>Jede Anforderung wird in Tasks erfasst, einem Agenten zugewiesen, in Wellen eingeplant, ausgeführt und verifiziert. Nichts fällt durchs Raster.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon">&#127754;</div>
+                <h3>Wellenbasierte Ausführung</h3>
+                <p>Arbeitspakete werden nach Abhängigkeiten in parallele Wellen gruppiert. Bis zu 3 Agenten arbeiten gleichzeitig — mit frischem Kontext pro Agent.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon">&#128736;</div>
+                <h3>Skill-Orchestrierung</h3>
+                <p>Vorhandene Skills werden automatisch erkannt und Agenten zugeordnet. Fehlende Skills werden on-the-fly generiert.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon">&#128230;</div>
+                <h3>Export als .skill</h3>
+                <p>Bewährte Companies werden als autarke .skill-Dateien exportiert — vollständig wiederverwendbar, parametrisierbar und sofort einsatzbereit.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon">&#128737;</div>
+                <h3>5-Ebenen-Verifikation</h3>
+                <p>Von der Einzelprüfung bis zum Qualitäts-Audit: Fünf Verifikationsebenen stellen sicher, dass jedes Ergebnis den Anforderungen entspricht.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Phases -->
+<section id="phases" style="background: var(--bg-secondary);">
+    <div class="container">
+        <span class="section-label">Der Ablauf</span>
+        <h2 class="section-title">9 Phasen. Lückenlos.</h2>
+        <p class="section-desc">
+            Von der Analyse bis zum Export — jede Phase hat klare Eingaben,
+            Ausgaben und Qualitätstore.
+        </p>
+
+        <div class="phases">
+            <div class="phase-item reveal">
+                <div class="phase-number">1</div>
+                <div class="phase-content">
+                    <h3>Aufgabenanalyse &amp; Zerlegung</h3>
+                    <p>Primärziel, Erfolgskriterien und Lieferobjekte extrahieren. Anforderungen ableiten und in atomare Arbeitspakete schneiden.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">2</div>
+                <div class="phase-content">
+                    <h3>Company Spawnen</h3>
+                    <p>Verzeichnisstruktur anlegen, Company-Manifest, Team-Manifeste und Agenten-Definitionen aus Templates generieren.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">3</div>
+                <div class="phase-content">
+                    <h3>Orchestrator-Hierarchie</h3>
+                    <p>Mission-Orchestrator als Root installieren, Sub-Orchestratoren für Planung, Ausführung und Verifikation einsetzen.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">4</div>
+                <div class="phase-content">
+                    <h3>Skill-Zuordnung</h3>
+                    <p>Verfügbare Skills durchsuchen, Agenten zuordnen, fehlende Skills generieren. Externe Skills nur nach Trust-Prüfung.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">5</div>
+                <div class="phase-content">
+                    <h3>Wellenplanung</h3>
+                    <p>Abhängigkeitsgraph als DAG erstellen, unabhängige Arbeitspakete in parallele Wellen gruppieren. User-Freigabe einholen.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">6</div>
+                <div class="phase-content">
+                    <h3>Ausführung</h3>
+                    <p>Welle für Welle ausführen: Agenten spawnen, Ergebnisse sammeln, gegen Akzeptanzkriterien prüfen, bei Fehler reparieren.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">7</div>
+                <div class="phase-content">
+                    <h3>Verifikation</h3>
+                    <p>5-Ebenen-Prüfung: Einzelprüfung, Wellenintegration, Phasenkohärenz, Vollständigkeitsaudit und Qualitätssicherung.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">8</div>
+                <div class="phase-content">
+                    <h3>Abschluss</h3>
+                    <p>Abschlussbericht generieren, STATE.md finalisieren, Lessons Learned dokumentieren.</p>
+                </div>
+            </div>
+            <div class="phase-item reveal">
+                <div class="phase-number">9</div>
+                <div class="phase-content">
+                    <h3>Export &amp; Wiederverwendung</h3>
+                    <p>Bewährte Company als autarke .skill-Datei exportieren — parametrisiert, validiert und in der Package-Registry registriert.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Manifests -->
+<section id="manifests">
+    <div class="container">
+        <span class="section-label">Architektur</span>
+        <h2 class="section-title">6 Manifest-Typen</h2>
+        <p class="section-desc">
+            Jede Einheit der Organisation wird durch ein typisiertes Manifest beschrieben —
+            von der Company bis zum einzelnen Skill.
+        </p>
+
+        <div class="manifest-grid">
+            <div class="manifest-card reveal">
+                <span class="emoji">&#127970;</span>
+                <h4>COMPANY</h4>
+                <p>Wurzel-Manifest mit Zielen und Governance</p>
+            </div>
+            <div class="manifest-card reveal">
+                <span class="emoji">&#128101;</span>
+                <h4>TEAM</h4>
+                <p>Wiederverwendbarer Organisationsbaum</p>
+            </div>
+            <div class="manifest-card reveal">
+                <span class="emoji">&#129302;</span>
+                <h4>AGENT</h4>
+                <p>Rolle mit Anweisungen und Skills</p>
+            </div>
+            <div class="manifest-card reveal">
+                <span class="emoji">&#128203;</span>
+                <h4>PROJECT</h4>
+                <p>Geplante Arbeitsgruppierung</p>
+            </div>
+            <div class="manifest-card reveal">
+                <span class="emoji">&#9989;</span>
+                <h4>TASK</h4>
+                <p>Atomare ausführbare Arbeitseinheit</p>
+            </div>
+            <div class="manifest-card reveal">
+                <span class="emoji">&#128161;</span>
+                <h4>SKILL</h4>
+                <p>Wiederverwendbare Fähigkeit</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Quickstart -->
+<section id="quickstart" style="background: var(--bg-secondary);">
+    <div class="container">
+        <span class="section-label">Loslegen</span>
+        <h2 class="section-title">Quickstart</h2>
+        <p class="section-desc">
+            Drei Wege, MissionForge einzusetzen.
+        </p>
+
+        <div class="code-section">
+            <div class="code-block reveal">
+                <div class="code-header">
+                    <span>Company spawnen</span>
+                    <span style="color: var(--success);">Empfohlen</span>
+                </div>
+                <div class="code-body">
+                    <span class="cmt"># Kopiere den Skill in dein Projekt</span><br>
+                    <span class="kw">cp -r</span> <span class="str">MissionForge/</span> <span class="str">.claude/skills/mission-forge/</span><br><br>
+                    <span class="cmt"># Starte Claude und sage:</span><br>
+                    <span class="fn">"Spawne eine Company für [deine Aufgabe]"</span><br><br>
+                    <span class="cmt"># MissionForge analysiert, plant und wartet auf deine Freigabe</span>
+                </div>
+            </div>
+
+            <div class="code-block reveal" style="margin-top: 1.5rem;">
+                <div class="code-header">
+                    <span>.skill-Datei ausführen</span>
+                    <span style="color: var(--warning);">Wiederkehrend</span>
+                </div>
+                <div class="code-body">
+                    <span class="cmt"># Exportierte Company wiederverwenden</span><br>
+                    <span class="fn">"Führe api-development.skill aus für [neue Aufgabe]"</span><br><br>
+                    <span class="cmt"># Parameter werden automatisch eingesetzt</span><br>
+                    <span class="cmt"># Company-Struktur ist bereits eingebettet</span>
+                </div>
+            </div>
+
+            <div class="code-block reveal" style="margin-top: 1.5rem;">
+                <div class="code-header">
+                    <span>Company exportieren</span>
+                    <span style="color: var(--accent-light);">Nach Abschluss</span>
+                </div>
+                <div class="code-body">
+                    <span class="cmt"># Nach erfolgreicher Mission:</span><br>
+                    <span class="fn">"Exportiere diese Company als .skill"</span><br><br>
+                    <span class="cmt"># Autarke Datei in packages/ &mdash; sofort wiederverwendbar</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Structure -->
+<section>
+    <div class="container">
+        <span class="section-label">Projektstruktur</span>
+        <h2 class="section-title">Was entsteht</h2>
+        <p class="section-desc" style="margin-bottom: 2rem;">
+            MissionForge generiert eine vollständige Verzeichnisstruktur
+            für jede Mission.
+        </p>
+
+        <div class="code-block reveal">
+            <div class="code-header">
+                <span>.mission-forge/</span>
+            </div>
+            <div class="code-body">
+<span class="kw">.mission-forge/</span>
+  <span class="str">COMPANY.md</span>          <span class="cmt"># Wurzel-Manifest</span>
+  <span class="str">STATE.md</span>             <span class="cmt"># Live-Status aller Komponenten</span>
+  <span class="str">VERIFICATION.md</span>      <span class="cmt"># Zero-Drop-Audit</span>
+  <span class="str">MISSION-REPORT.md</span>    <span class="cmt"># Abschlussbericht</span>
+  <span class="kw">teams/</span>
+    <span class="kw">planung/</span>           <span class="str">TEAM.md</span>
+    <span class="kw">ausfuehrung/</span>       <span class="str">TEAM.md</span>
+    <span class="kw">verifikation/</span>      <span class="str">TEAM.md</span>
+  <span class="kw">agents/</span>
+    <span class="kw">[agent-slug]/</span>      <span class="str">AGENTS.md</span>
+  <span class="kw">tasks/</span>
+    <span class="kw">[wp-id]/</span>           <span class="str">TASK.md</span>
+  <span class="kw">skills/</span>              <span class="cmt"># Auto-generierte Skills</span>
+  <span class="kw">results/</span>
+    <span class="kw">wave-N-wp-XXX/</span>    <span class="str">SUMMARY.md</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+    <div class="cta-box reveal">
+        <h2>Bereit, deine erste Company zu spawnen?</h2>
+        <p>
+            Klone das Repository, kopiere den Skill in dein Projekt und
+            starte mit einer Aufgabenbeschreibung.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="https://github.com/GodModeAI2025/MissionForge" class="btn btn-primary" target="_blank">
+                &#128640; Zum Repository
+            </a>
+            <a href="https://github.com/GodModeAI2025/MissionForge/blob/main/SKILL.md" class="btn btn-outline" target="_blank">
+                &#128196; SKILL.md lesen
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <div class="footer-inner">
+        <p>&copy; 2026 MissionForge &mdash; Ein Open-Source-Projekt von <a href="https://godmodeai2025.github.io/MarkZimmermann/" target="_blank">Mark Zimmermann</a></p>
+        <div class="footer-links">
+            <a href="https://github.com/GodModeAI2025/MissionForge" target="_blank">GitHub</a>
+            <a href="https://github.com/GodModeAI2025/MissionForge/blob/main/LICENSE" target="_blank">MIT Lizenz</a>
+            <a href="https://godmodeai2025.github.io/MarkZimmermann/" target="_blank">Impressum</a>
+        </div>
+    </div>
+</footer>
+
+<script>
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
