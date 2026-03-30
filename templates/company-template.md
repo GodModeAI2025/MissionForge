@@ -51,6 +51,18 @@ metadata:
 - **Qualitativ**: {{Standards, Compliance-Anforderungen}}
 - **Ressourcen**: {{Max parallele Agenten, Model-Budget}}
 
+## Ausfuehrungskonfiguration
+
+```yaml
+auditchain:
+  enabled: true              # Kryptographische Hash-Chain (empfohlen: immer true)
+
+execution:
+  monte_carlo: false         # true fuer Monte-Carlo bei critical Tasks
+  mc_variants: 3             # Anzahl Varianten (nur wenn monte_carlo: true)
+  mc_selection: best_score   # best_score | consensus | user_choice
+```
+
 ## Includes
 
 - teams/{{TEAM_1}}/TEAM.md

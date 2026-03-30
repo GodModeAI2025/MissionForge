@@ -12,28 +12,36 @@
 - [ ] Alle benoetigten Skills verfuegbar
 - [ ] Abhaengigkeitsgraph ist azyklisch
 - [ ] STATE.md initialisiert
+- [ ] AuditChain Genesis-Block erstellt
 - [ ] Traceability-Matrix vollstaendig
 - [ ] User hat Plan freigegeben
+- [ ] Wellenplan in AuditChain versiegelt (WAVE_PLAN_SEALED)
 
 ## Wave-Gate (nach jeder Welle)
 
 - [ ] Alle Agenten der Welle haben Ergebnisse geliefert
 - [ ] Ergebnisse gegen Akzeptanzkriterien geprueft
 - [ ] STATE.md aktualisiert
+- [ ] Alle Statuswechsel in AuditChain protokolliert
 - [ ] Fehlgeschlagene WPs: Reparatur oder Eskalation dokumentiert
+- [ ] Monte-Carlo Tasks: Alle Varianten in Chain, Auswahl dokumentiert
 
 ## Post-Flight (nach Missionsende)
 
 - [ ] Zero-Drop-Audit bestanden
-- [ ] Verifikationsbericht erstellt (VERIFICATION.md)
-- [ ] Abschlussbericht erstellt (MISSION-REPORT.md)
+- [ ] AuditChain-Integritaetspruefung bestanden (Ebene 6)
+- [ ] Verifikationsbericht erstellt (VERIFICATION.md) inkl. Chain-Bericht
+- [ ] Abschlussbericht erstellt (MISSION-REPORT.md) inkl. Revisionssicherheit
+- [ ] AuditChain versiegelt (CHAIN_SEALED)
 - [ ] Alle Artefakte im results/ Verzeichnis
 - [ ] Offene Punkte dokumentiert oder eskaliert
 
 ## Export-Check (vor Package-Export)
 
 - [ ] Mission Status VERIFIED
+- [ ] AuditChain intakt und versiegelt
 - [ ] Alle aufgabenspezifischen Werte durch Platzhalter ersetzt
+- [ ] AuditChain-Konfiguration in .skill eingebettet
 - [ ] defaults.yaml mit allen Parametern erstellt
 - [ ] README.md generiert
 - [ ] Exportierte SKILL.md validiert (Name, Description, Frontmatter)

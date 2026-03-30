@@ -68,6 +68,33 @@ coverage-score: {{0-100}}%
 | Integration    | JA       | {{PASS/FAIL}}    |                  |
 | Dokumentation  | JA       | {{PASS/FAIL}}    |                  |
 
+## Kryptographische Integritaet (AuditChain)
+
+| Eigenschaft | Wert |
+|---|---|
+| Chain-Laenge | {{CHAIN_LENGTH}} Eintraege |
+| Genesis-Hash | `{{GENESIS_HASH}}` |
+| Finaler Hash | `{{FINAL_HASH}}` |
+| Zeitraum | {{FIRST_TIMESTAMP}} → {{LAST_TIMESTAMP}} |
+| Kette intakt | {{INTACT_STATUS}} |
+| Versiegelt | {{SEALED_STATUS}} |
+| Beteiligte Agenten | {{AGENTS_LIST}} |
+
+### Event-Verteilung
+
+| Event | Anzahl |
+|---|---|
+| {{EVENT_NAME}} | {{COUNT}} |
+
+### Integritaets-Urteil
+
+{{INTEGRITY_RESULT — z.B.: "Alle N Eintraege verifiziert. Keine Manipulation erkannt." oder "INTEGRITAETSVERLETZUNG: [Details]"}}
+
+Pruefbar mit:
+```bash
+python audit/verify.py .mission-forge/audit/CHAIN.jsonl --verbose
+```
+
 ## Offene Punkte
 
 | # | Beschreibung                   | Schweregrad | Empfehlung              |

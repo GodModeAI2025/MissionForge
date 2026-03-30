@@ -83,6 +83,25 @@ result: {{PASSED | PARTIAL | FAILED}}
 - {{Empfehlung 1}}
 - {{Empfehlung 2}}
 
+## Revisionssicherheit (AuditChain)
+
+| Eigenschaft | Wert |
+|---|---|
+| AuditChain | `.mission-forge/audit/CHAIN.jsonl` |
+| Eintraege | {{CHAIN_LENGTH}} |
+| Genesis-Hash | `{{GENESIS_HASH}}` |
+| Finaler Hash | `{{FINAL_HASH}}` |
+| Kette intakt | {{INTACT_STATUS}} |
+| Versiegelt | {{SEALED_STATUS}} |
+| Monte-Carlo Tasks | {{MC_TASK_COUNT}} ({{MC_VARIANT_COUNT}} Varianten) |
+
+Pruefbar mit:
+```bash
+python audit/verify.py .mission-forge/audit/CHAIN.jsonl --report
+```
+
+{{Falls Monte-Carlo verwendet: Auflistung der MC-Tasks mit gewaehlter Variante und Score}}
+
 ## Wiederverwendbarkeit
 
 ### Wiederverwendbare Company-Teile

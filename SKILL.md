@@ -3,22 +3,26 @@ name: mission-forge
 description: >
   Spawnt vollstaendige Agent-Companies aus beliebigen Aufgabenbeschreibungen mit
   Orchestrator-Hierarchie, Sub-Orchestratoren, Skill-Zuordnung und lueckenloser
-  Aufgabenverfolgung. Exportiert abgeschlossene Companies als wiederverwendbare
-  Packages. Trigger: "company spawnen", "organisation erstellen", "aufgabe
+  Aufgabenverfolgung. Revisionssicher durch kryptographische Hash-Chain (AuditChain).
+  Optionaler Monte-Carlo-Modus fuer kritische Tasks.
+  Exportiert abgeschlossene Companies als wiederverwendbare Packages.
+  Trigger: "company spawnen", "organisation erstellen", "aufgabe
   orchestrieren", "ablauforganisation", "mission starten", "nichts vergessen",
   "skill-organisation", "multi-agent", "task-force", "projekt-orchestrierung",
-  "company exportieren", "package erstellen", "company wiederverwenden".
+  "company exportieren", "package erstellen", "company wiederverwenden",
+  "revisionssicher", "audit-trail", "monte-carlo".
 license: MIT
 compatibility: >
   Designed for Claude Code and compatible agent runtimes.
   Requires Bash, Read, Write, Edit, Agent tools.
+  Requires Python 3.10+ for AuditChain (audit/chain.py).
   Optional: Git for versioning, WebFetch for external skill discovery.
 metadata:
   author: skillorga
-  version: "3.0.0"
-  schema: missionforge/v1
+  version: "4.0.0"
+  schema: agentcompanies/v1
   kind: skill
-  tags: orchestration, company-spawning, multi-agent, task-management, workflow, export
+  tags: orchestration, company-spawning, multi-agent, task-management, workflow, export, audit-trail, revisionssicher, monte-carlo
 allowed-tools: Bash Read Write Edit Agent Glob Grep TaskCreate TaskUpdate TaskGet TaskList
 ---
 
@@ -26,7 +30,8 @@ allowed-tools: Bash Read Write Edit Agent Glob Grep TaskCreate TaskUpdate TaskGe
 
 > Verwandelt jede Aufgabe in eine lebende Organisation aus spezialisierten Agenten
 > mit garantierter Vollstaendigkeit, Nachverfolgbarkeit und Qualitaetssicherung.
-> Exportiert bewährte Companies als wiederverwendbare Packages.
+> Revisionssicher durch kryptographische Hash-Chain. Exportiert bewährte Companies
+> als wiederverwendbare Packages.
 
 ---
 
@@ -55,6 +60,7 @@ Aktiviere Mission Forge wenn:
 - **Mehrere Skills** orchestriert werden muessen ohne dass etwas vergessen wird
 - Eine **Ablauforganisation** mit klaren Verantwortlichkeiten gebraucht wird
 - Eine **wiederverwendbare Organisationsstruktur** fuer wiederkehrende Aufgabentypen entstehen soll
+- **Revisionssicherheit** gefordert ist (regulierte Branchen, Audits, Compliance)
 
 **Nicht verwenden** fuer triviale Einzel-Tasks die in unter 2 Minuten erledigt sind.
 
@@ -111,8 +117,62 @@ Jede Anforderung muss:
 3. In einer Welle eingeplant sein (Scheduling)
 4. Nach Ausfuehrung verifiziert sein (Verification)
 5. Im Abschlussbericht dokumentiert sein (Documentation)
+6. In der AuditChain protokolliert sein (Revisionssicherheit)
 
 Fehlt ein Schritt, blockiert die Pipeline.
+
+### 2.6 AuditChain (Kryptographische Beweiskette)
+
+Jede Zustandsaenderung in einer Mission wird als Hash-Chain-Eintrag protokolliert. Jeder Eintrag referenziert den SHA-256-Hash des vorherigen — Manipulation eines Eintrags bricht die Kette und wird bei der Verifikation sofort erkannt.
+
+**Chain-Datei:** `.mission-forge/audit/CHAIN.jsonl`  
+**Engine:** `audit/chain.py` (Python 3.10+, keine externen Dependencies)  
+**Verifier:** `audit/verify.py` (Standalone, fuer externe Auditoren)
+
+**Pflicht-Events:**
+
+| Event                  | Wann                              | Phase |
+|------------------------|-----------------------------------|-------|
+| `GENESIS`              | Company wird gespawnt             | 2     |
+| `WAVE_PLAN_SEALED`     | Wellenplan freigegeben             | 5     |
+| `TASK_STATUS_CHANGE`   | Jeder Statuswechsel eines WP      | 6     |
+| `MONTE_CARLO_VARIANT`  | Jede MC-Variante (wenn aktiviert)  | 6     |
+| `MONTE_CARLO_SELECTED` | MC-Auswahl mit Begruendung        | 6     |
+| `VERIFICATION_PASSED`  | WP-Verifikation bestanden          | 7     |
+| `VERIFICATION_FAILED`  | WP-Verifikation gescheitert        | 7     |
+| `CHAIN_SEALED`         | Mission abgeschlossen              | 8     |
+
+**Eintrag-Format (CHAIN.jsonl, eine Zeile pro Eintrag):**
+
+```json
+{
+  "seq": 0,
+  "timestamp": "2026-03-30T14:22:01.123456Z",
+  "event": "TASK_STATUS_CHANGE",
+  "ref": "WP-003",
+  "agent": "implementierer-01",
+  "data": {"from": "IN_PROGRESS", "to": "DONE", "artifact_hash": "sha256:..."},
+  "prev_hash": "sha256:vorheriger_hash...",
+  "entry_hash": "sha256:dieses_eintrags_hash..."
+}
+```
+
+**Integritaetsregel:** `entry_hash` = SHA-256 ueber alle Felder OHNE entry_hash selbst, kanonisch serialisiert (sorted keys, keine Whitespaces). Verkettung ueber `prev_hash`. Genesis-Block hat prev_hash = 64 Nullen.
+
+### 2.7 Monte-Carlo-Modus (Optional)
+
+Fuer Tasks mit Prioritaet `critical` kann der Monte-Carlo-Modus aktiviert werden. Dabei wird ein Task N-mal mit variierten Parametern (Temperatur, Prompt-Reihenfolge, Formulierung) ausgefuehrt. Ergebnisse werden bewertet und das beste ausgewaehlt. Alle Varianten werden in der AuditChain dokumentiert — nachvollziehbar, warum welche Variante gewaehlt wurde.
+
+Konfiguration in COMPANY.md:
+
+```yaml
+execution:
+  monte_carlo: true          # Aktiviert MC fuer critical Tasks
+  mc_variants: 3             # Anzahl Varianten (default: 3)
+  mc_selection: best_score   # best_score | consensus | user_choice
+```
+
+**Nur fuer critical Tasks.** Fuer medium/low Tasks waere der Overhead unverhaeltnismaessig.
 
 ---
 
@@ -178,6 +238,46 @@ Fuer jeden Agenten erstelle `.mission-forge/agents/[agent-slug]/AGENTS.md` basie
 
 Fuer jedes WP erstelle `.mission-forge/tasks/[wp-id]/TASK.md` basierend auf [templates/task-template.md](templates/task-template.md).
 
+### 4.5 AuditChain initialisieren (Genesis-Block)
+
+Erstelle `.mission-forge/audit/` und schreibe den Genesis-Block. Dies ist der erste Eintrag der kryptographischen Beweiskette und versiegelt: Mission-ID, Ziele, beteiligte Akteure, Chain-Version.
+
+```bash
+python audit/chain.py genesis .mission-forge/audit "MISSION-ID"
+```
+
+Oder programmatisch:
+
+```python
+from audit.chain import AuditChain
+ac = AuditChain(".mission-forge/audit")
+ac.genesis(
+    mission_id="MISSION-2026-042",
+    goals=["Ziel 1", "Ziel 2"],
+    actors=["orchestrator", "agent-alpha", "tester-01"]
+)
+```
+
+**Pflicht:** Ohne Genesis-Block ist die Mission NICHT revisionssicher. Der Genesis-Block MUSS vor der ersten Ausfuehrung existieren.
+
+**Verzeichnisstruktur nach Phase 2:**
+
+```
+.mission-forge/
+├── COMPANY.md
+├── STATE.md
+├── audit/                    ← NEU
+│   └── CHAIN.jsonl           ← Genesis-Block als erster Eintrag
+├── teams/
+│   ├── planung/TEAM.md
+│   ├── ausfuehrung/TEAM.md
+│   └── verifikation/TEAM.md
+├── agents/
+│   └── [agent-slug]/AGENTS.md
+└── tasks/
+    └── [wp-id]/TASK.md
+```
+
 ---
 
 ## 5. Phase 3 — Orchestrator-Hierarchie
@@ -190,9 +290,10 @@ Der einzige Agent der die gesamte Mission ueberblickt.
 1. Lade COMPANY.md und alle Team-Manifeste (Katalog-Stufe)
 2. Erstelle STATE.md basierend auf [templates/state-template.md](templates/state-template.md)
 3. Validiere: Alle REQs haben zugehoerige WPs
-4. Delegiere an Sub-Orchestratoren in Reihenfolge: Planung -> Ausfuehrung -> Verifikation
-5. Pruefe nach jeder Welle die Vollstaendigkeit
-6. Eskaliere Blocker an den User
+4. Validiere: AuditChain Genesis-Block existiert
+5. Delegiere an Sub-Orchestratoren in Reihenfolge: Planung -> Ausfuehrung -> Verifikation
+6. Pruefe nach jeder Welle die Vollstaendigkeit
+7. Eskaliere Blocker an den User
 
 ### 5.2 Sub-Orchestratoren
 
@@ -256,9 +357,10 @@ Gruppiere unabhaengige WPs in parallele Wellen:
 
 ### 7.3 Agenten zuordnen
 
-| Welle | WP     | Agent                | Skills               | Model  |
-|-------|--------|----------------------|----------------------|--------|
-| 1     | WP-001 | implementierer-alpha | code-review, testing | sonnet |
+| Welle | WP     | Agent                | Skills               | Model  | Monte-Carlo |
+|-------|--------|----------------------|----------------------|--------|-------------|
+| 1     | WP-001 | implementierer-alpha | code-review, testing | sonnet | nein        |
+| 2     | WP-004 | implementierer-alpha | api-design           | sonnet | ja (critical)|
 
 ### 7.4 Pre-Flight-Check
 
@@ -268,8 +370,32 @@ Gruppiere unabhaengige WPs in parallele Wellen:
 - [ ] Alle Skills verfuegbar
 - [ ] Abhaengigkeitsgraph azyklisch
 - [ ] Jede REQ durch mindestens ein WP abgedeckt
+- [ ] AuditChain Genesis-Block existiert
 
 **Zeige dem User den vollstaendigen Plan mit Traceability-Matrix. Keine Ausfuehrung ohne Freigabe.**
+
+### 7.5 Wellenplan versiegeln (AuditChain)
+
+Nach User-Freigabe des Plans wird der Wellenplan in der AuditChain versiegelt:
+
+```python
+ac.log("WAVE_PLAN_SEALED", ref="PLAN-v1", data={
+    "waves": anzahl_wellen,
+    "total_wps": anzahl_wps,
+    "plan_hash": sha256_des_wellenplans,
+    "monte_carlo_tasks": liste_der_mc_wps,
+})
+```
+
+Ab diesem Punkt ist der Plan in der Chain fixiert. Aenderungen am Plan nach Freigabe erzeugen einen `WAVE_PLAN_AMENDED` Eintrag mit Begruendung:
+
+```python
+ac.log("WAVE_PLAN_AMENDED", ref="PLAN-v2", data={
+    "reason": "WP-005 hinzugefuegt nach Scope-Erweiterung",
+    "changes": ["added WP-005 to wave 3"],
+    "approved_by": "user",
+})
+```
 
 ---
 
@@ -280,10 +406,11 @@ Gruppiere unabhaengige WPs in parallele Wellen:
 Fuer jede Welle:
 
 1. **Vorbereitung**: Manifeste laden, Vorbedingungen pruefen, STATE.md aktualisieren
-2. **Parallele Ausfuehrung**: Agenten spawnen (max 3 concurrent), jeder in frischem Kontext
-3. **Ergebnis-Sammlung**: Jeder Agent schreibt `.mission-forge/results/wave-N-wp-XXX/SUMMARY.md`
-4. **Wellen-Verifikation**: Gegen Akzeptanzkriterien pruefen, bei Fehler Reparatur (max 2 Versuche)
-5. **Gate-Check**: Alle DONE? -> Naechste Welle. FAILED? -> Eskalation
+2. **AuditChain-Logging**: Jeder Statuswechsel wird automatisch in der Chain protokolliert (siehe 8.5)
+3. **Parallele Ausfuehrung**: Agenten spawnen (max 3 concurrent), jeder in frischem Kontext
+4. **Ergebnis-Sammlung**: Jeder Agent schreibt `.mission-forge/results/wave-N-wp-XXX/SUMMARY.md`
+5. **Wellen-Verifikation**: Gegen Akzeptanzkriterien pruefen, bei Fehler Reparatur (max 2 Versuche)
+6. **Gate-Check**: Alle DONE? -> Naechste Welle. FAILED? -> Eskalation
 
 ### 8.2 Frischer Kontext pro Agent
 
@@ -306,11 +433,74 @@ Siehe [references/error-handling.md](references/error-handling.md) fuer Details.
 | 16-25     | Erweitert: Mehrere Sub-Orchestratoren, ggf. 4 Teams              |
 | 25+       | Aufteilen in mehrere Missionen mit eigener Company pro Teilbereich|
 
+### 8.5 AuditChain Auto-Logging
+
+**Jeder Statuswechsel** eines WP wird automatisch in der AuditChain protokolliert. Dies ist keine optionale Ergaenzung — es ist Pflicht fuer revisionssichere Missionen.
+
+```python
+ac.log("TASK_STATUS_CHANGE", ref=wp_id, agent=agent_name, data={
+    "from": alter_status,
+    "to": neuer_status,
+    "artifact_hash": sha256_des_ergebnisses,  # wenn Artefakt vorhanden
+    "wave": aktuelle_welle,
+})
+```
+
+**Weitere Events die automatisch geloggt werden:**
+
+| Situation | Event | Daten |
+|---|---|---|
+| Agent gestartet | `AGENT_SPAWNED` | agent, wp_id, wave |
+| Agent fertig | `AGENT_COMPLETED` | agent, wp_id, duration_seconds |
+| Reparatur-Versuch | `REPAIR_ATTEMPT` | agent, wp_id, attempt_number, reason |
+| Eskalation | `ESCALATION` | from_agent, to_level, reason |
+| Plan-Aenderung | `WAVE_PLAN_AMENDED` | reason, changes, approved_by |
+| Skill aktiviert | `SKILL_ACTIVATED` | skill_name, agent, trust_level |
+
+### 8.6 Monte-Carlo-Ausfuehrung
+
+Wenn `monte_carlo: true` in COMPANY.md und ein Task die Prioritaet `critical` hat:
+
+**Ablauf:**
+
+1. Task wird `mc_variants`-mal ausgefuehrt (default: 3)
+2. Jede Variante nutzt leicht veraenderte Parameter:
+   - Variante 1: Original-Prompt, Temperatur 0.3
+   - Variante 2: Umformulierter Prompt, Temperatur 0.5
+   - Variante 3: Umgekehrte Reihenfolge der Anforderungen, Temperatur 0.7
+3. Jede Variante wird einzeln gegen Akzeptanzkriterien bewertet (Score 0.0–1.0)
+4. Auswahl nach `mc_selection`:
+   - `best_score`: Hoechster Score gewinnt
+   - `consensus`: Ergebnis das in >50% der Varianten vorkommt
+   - `user_choice`: Alle Varianten werden dem User praesentiert
+
+**AuditChain-Logging fuer Monte-Carlo:**
+
+```python
+# Jede Variante
+ac.log("MONTE_CARLO_VARIANT", ref=wp_id, agent=agent_name, data={
+    "variant": varianten_nummer,
+    "prompt_variation": beschreibung_der_variation,
+    "score": bewertungs_score,
+    "artifact_hash": sha256_des_varianten_ergebnisses,
+})
+
+# Auswahl
+ac.log("MONTE_CARLO_SELECTED", ref=wp_id, data={
+    "selected_variant": gewaehlte_nummer,
+    "reason": "Hoechster Score (0.91)",
+    "all_scores": [0.82, 0.91, 0.87],
+    "selection_method": "best_score",
+})
+```
+
+**Alle Varianten bleiben in der Chain** — nachvollziehbar, warum welche gewaehlt wurde. Nicht-gewaehlte Varianten werden NICHT geloescht.
+
 ---
 
 ## 9. Phase 7 — Verifikation
 
-### 9.1 Fuenf-Ebenen-Verifikation
+### 9.1 Sechs-Ebenen-Verifikation
 
 | Ebene | Prueft                               | Agent                    |
 |-------|--------------------------------------|--------------------------|
@@ -319,14 +509,70 @@ Siehe [references/error-handling.md](references/error-handling.md) fuer Details.
 | 3     | Phase: Alle Wellen kohaerent         | Sub-Orch. Verifikation   |
 | 4     | Mission: Alle REQs erfuellt          | Vollstaendigkeits-Pruefer|
 | 5     | Qualitaet: Nicht-funktionale Kriterien| Qualitaets-Sicherer     |
+| 6     | Integritaet: Kryptographische Chain  | AuditChain Verifier      |
 
 ### 9.2 Zero-Drop-Audit
 
-Pruefe fuer JEDE REQ-ID: WP zugeordnet? Ausgefuehrt? Akzeptanzkriterium geprueft? Dokumentiert?
+Pruefe fuer JEDE REQ-ID: WP zugeordnet? Ausgefuehrt? Akzeptanzkriterium geprueft? Dokumentiert? In AuditChain protokolliert?
 
-Suche nach Luecken: REQs ohne WP, WPs ohne Agent, WPs ohne Ergebnis, Agenten ohne Report, Skills ohne Aktivierung.
+Suche nach Luecken: REQs ohne WP, WPs ohne Agent, WPs ohne Ergebnis, Agenten ohne Report, Skills ohne Aktivierung, Statuswechsel ohne Chain-Eintrag.
 
 Erstelle `.mission-forge/VERIFICATION.md` basierend auf [templates/verification-template.md](templates/verification-template.md).
+
+### 9.3 AuditChain-Integritaetspruefung (Ebene 6)
+
+Nach dem Zero-Drop-Audit wird die kryptographische Integritaet der Chain geprueft:
+
+```bash
+python audit/verify.py .mission-forge/audit/CHAIN.jsonl --verbose
+```
+
+Oder programmatisch:
+
+```python
+ac = AuditChain(".mission-forge/audit")
+intact, errors = ac.verify()
+```
+
+**Ergebnis wird als neuer Abschnitt in VERIFICATION.md eingefuegt:**
+
+```markdown
+## Kryptographische Integritaet (AuditChain)
+
+| Eigenschaft | Wert |
+|---|---|
+| Chain-Laenge | 47 Eintraege |
+| Genesis-Hash | `sha256:abc123...` |
+| Finaler Hash | `sha256:xyz789...` |
+| Zeitraum | 2026-03-30T08:00:00Z → 2026-03-30T16:45:00Z |
+| Kette intakt | ✅ Ja |
+| Beteiligte Agenten | orchestrator, implementierer-alpha, tester-01 |
+
+> Alle 47 Eintraege verifiziert. Keine Manipulation erkannt.
+```
+
+**Bei Integritaetsverletzung:** Sofortige Eskalation an User. Mission wird NICHT als VERIFIED markiert. Status wechselt zu ESCALATED mit Grund "AuditChain integrity violation".
+
+### 9.4 Verifikations-Logging in AuditChain
+
+Jedes Verifikationsergebnis wird in der Chain protokolliert:
+
+```python
+# Bestandene Verifikation
+ac.log("VERIFICATION_PASSED", ref=wp_id, agent="tester-01", data={
+    "level": "acceptance_criteria",
+    "result": "PASS",
+    "details": "Alle 5 Akzeptanzkriterien erfuellt",
+})
+
+# Gescheiterte Verifikation
+ac.log("VERIFICATION_FAILED", ref=wp_id, agent="tester-01", data={
+    "level": "acceptance_criteria",
+    "result": "FAIL",
+    "failed_criteria": ["Performance unter Threshold"],
+    "action": "REPAIR",
+})
+```
 
 ---
 
@@ -338,7 +584,43 @@ Erstelle `.mission-forge/MISSION-REPORT.md` basierend auf [templates/mission-rep
 
 ### 10.2 Missions-Abbruch
 
-Falls vorzeitig beendet: Status `ABORTED` in STATE.md, Grund im Entscheidungslog, partieller Report. Bereits abgeschlossene Ergebnisse bleiben erhalten.
+Falls vorzeitig beendet: Status `ABORTED` in STATE.md, Grund im Entscheidungslog, partieller Report. Bereits abgeschlossene Ergebnisse bleiben erhalten. AuditChain wird trotzdem versiegelt (mit ABORTED-Event).
+
+### 10.3 AuditChain versiegeln
+
+Am Ende jeder Mission (erfolgreich oder abgebrochen) wird die Chain versiegelt:
+
+```python
+ac.seal("MISSION-ID")
+```
+
+Der SEAL-Eintrag enthaelt: Gesamtanzahl Eintraege, Genesis-Hash, Integritaetsstatus. Nach der Versiegelung duerfen keine weiteren Eintraege hinzugefuegt werden.
+
+**Revisionssicherheits-Abschnitt im MISSION-REPORT.md:**
+
+```markdown
+## Revisionssicherheit
+
+| Eigenschaft | Wert |
+|---|---|
+| AuditChain | `.mission-forge/audit/CHAIN.jsonl` |
+| Eintraege | 47 |
+| Genesis-Hash | `sha256:abc123...` |
+| Finaler Hash | `sha256:xyz789...` |
+| Kette intakt | ✅ |
+| Versiegelt | ✅ |
+
+Pruefbar mit:
+```bash
+python audit/verify.py .mission-forge/audit/CHAIN.jsonl --report
+```
+```
+
+**Integritaetsbericht generieren (optional):**
+
+```bash
+python audit/verify.py .mission-forge/audit/CHAIN.jsonl --report > .mission-forge/AUDIT-REPORT.md
+```
 
 ---
 
@@ -361,6 +643,7 @@ Eine `.skill` Datei ist eine **vollstaendig autarke, selbstausfuehrende Datei** 
 - Alle Skills die die Agenten benoetigen
 - Wellenplanung und Abhaengigkeitslogik
 - Verifikations- und Qualitaetssicherungsregeln
+- AuditChain-Konfiguration (auto-log, Monte-Carlo-Einstellungen)
 - Konfigurierbare Parameter fuer neue Aufgaben
 
 **Eine .skill Datei reicht aus um die gesamte Company zu spawnen und die Aufgabe abzuarbeiten.**
@@ -376,6 +659,7 @@ Lies COMPANY.md, alle TEAM.md, AGENTS.md, TASK.md, verwendete Skills, STATE.md u
 - Welche Skills wurden aktiviert?
 - Welche Wellenplanung war effektiv?
 - Was waren Lessons Learned?
+- Welche Monte-Carlo-Konfiguration hat die besten Ergebnisse geliefert?
 
 **Schritt 2: Generiere die .skill Datei**
 
@@ -403,8 +687,21 @@ Die `.skill` Datei muss ALLES enthalten — keine externen Abhaengigkeiten:
 │  ├── Orchestrierungs-Ablauf (Schritt fuer Schritt)│
 │  ├── Wellenplanungs-Logik                        │
 │  ├── Verifikations-Regeln                        │
+│  ├── AuditChain-Konfiguration                    │
+│  ├── Monte-Carlo-Einstellungen (wenn verwendet)  │
 │  └── Fehlerbehandlung & Eskalation               │
 └─────────────────────────────────────────────────┘
+```
+
+**Schritt 3b: AuditChain-Konfiguration einbetten**
+
+Die `.skill` Datei enthaelt die AuditChain-Konfiguration als eingebetteten Abschnitt. Beim Aufruf wird automatisch eine NEUE Chain mit Genesis-Block erstellt. Die Chain der Original-Mission wird NICHT uebernommen — jede Ausfuehrung bekommt ihre eigene, unabhaengige Chain.
+
+```yaml
+auditchain:
+  enabled: true
+  auto_log: true
+  monte_carlo: false  # oder true mit mc_variants, mc_selection
 ```
 
 **Schritt 4: Parametrisieren**
@@ -417,6 +714,7 @@ metadata:
     AUFGABE: {required: true, description: "Neue Aufgabenbeschreibung"}
     ZIEL: {required: true, description: "Primaerziel der Mission"}
     MAX_AGENTS: {required: false, default: "3", description: "Max parallele Agenten"}
+    MONTE_CARLO: {required: false, default: "false", description: "MC fuer critical Tasks"}
 ```
 
 **Schritt 5: Validieren**
@@ -427,6 +725,7 @@ Pruefe die exportierte `.skill` Datei:
 - [ ] Alle Skills inline enthalten (keine externen Referenzen)
 - [ ] Orchestrierungs-Ablauf lueckenlos
 - [ ] Verifikationsregeln enthalten
+- [ ] AuditChain-Konfiguration eingebettet
 - [ ] Test-Aufruf mit Beispiel-Aufgabe funktioniert
 
 ### 11.4 Aufruf einer .skill Datei
@@ -435,9 +734,10 @@ Wenn der User sagt: **"Fuehre [company-name].skill aus fuer [Aufgabe]"**:
 
 1. **Laden**: Lies die `.skill` Datei aus `packages/`, `.claude/skills/`, `~/.agents/skills/`
 2. **Parameter einsetzen**: Ersetze `{{AUFGABE}}`, `{{ZIEL}}` etc. mit den User-Angaben
-3. **Direkt ausfuehren**: Die Datei enthaelt den kompletten Ablauf — folge den Anweisungen Schritt fuer Schritt
-4. **Keine Phase 1-4 noetig**: Company-Struktur, Agenten und Skills sind bereits definiert
-5. **Starte bei Wellenplanung**: Erstelle aufgabenspezifische Tasks und plane Wellen
+3. **AuditChain initialisieren**: Genesis-Block mit neuer Mission-ID erstellen
+4. **Direkt ausfuehren**: Die Datei enthaelt den kompletten Ablauf — folge den Anweisungen Schritt fuer Schritt
+5. **Keine Phase 1-4 noetig**: Company-Struktur, Agenten und Skills sind bereits definiert
+6. **Starte bei Wellenplanung**: Erstelle aufgabenspezifische Tasks und plane Wellen
 
 ### 11.5 Skill-Extraktion (einzelne Skills)
 
@@ -455,11 +755,11 @@ Exportierte `.skill` Dateien werden registriert in `packages/REGISTRY.md`:
 ```markdown
 # .skill Registry
 
-| Datei                      | Beschreibung                  | Exportiert | Version |
-|----------------------------|-------------------------------|------------|---------|
-| api-development.skill      | REST-API mit Auth & DB        | 2026-03-29 | 1.0.0   |
-| frontend-app.skill         | Frontend mit React/Next.js    | 2026-03-30 | 1.0.0   |
-| data-pipeline.skill        | ETL-Pipeline mit Validierung  | 2026-04-01 | 1.1.0   |
+| Datei                      | Beschreibung                  | Exportiert | Version | AuditChain | Monte-Carlo |
+|----------------------------|-------------------------------|------------|---------|------------|-------------|
+| api-development.skill      | REST-API mit Auth & DB        | 2026-03-29 | 1.0.0   | ✅          | nein        |
+| frontend-app.skill         | Frontend mit React/Next.js    | 2026-03-30 | 1.0.0   | ✅          | nein        |
+| data-pipeline.skill        | ETL-Pipeline mit Validierung  | 2026-04-01 | 1.1.0   | ✅          | ja (3 var.) |
 ```
 
 ---
@@ -471,6 +771,8 @@ Exportierte `.skill` Dateien werden registriert in `packages/REGISTRY.md`:
 - **Fehlerbehandlung**: [references/error-handling.md](references/error-handling.md)
 - **Fehlerbehebung**: [references/troubleshooting.md](references/troubleshooting.md)
 - **Checklisten**: [references/checklists.md](references/checklists.md)
+- **AuditChain-Engine**: [audit/chain.py](audit/chain.py)
+- **AuditChain-Verifier**: [audit/verify.py](audit/verify.py)
 - **Templates**: `templates/` Verzeichnis
 
 ---
@@ -480,18 +782,24 @@ Exportierte `.skill` Dateien werden registriert in `packages/REGISTRY.md`:
 **"Spawne eine Company fuer [Aufgabe]":**
 1. Aufgabe analysieren (Phase 1)
 2. Bei Unklarheiten nachfragen (max 3 Fragen)
-3. Company-Struktur erstellen (Phase 2-4)
-4. Wellenplan praesentieren (Phase 5) — **User-Freigabe abwarten**
-5. Ausfuehren (Phase 6), Verifizieren (Phase 7), Dokumentieren (Phase 8)
+3. Company-Struktur erstellen inkl. AuditChain Genesis-Block (Phase 2-4)
+4. Wellenplan praesentieren und versiegeln (Phase 5) — **User-Freigabe abwarten**
+5. Ausfuehren mit Auto-Logging (Phase 6), Verifizieren inkl. Chain-Pruefung (Phase 7), Dokumentieren und versiegeln (Phase 8)
 6. Optional: Exportieren (Phase 9)
 
 **"Fuehre [name].skill aus fuer [Aufgabe]":**
 1. `.skill` Datei aus `packages/` laden
 2. Parameter einsetzen (AUFGABE, ZIEL)
-3. Aufgabenspezifische Tasks erstellen
-4. Direkt ausfuehren — Company-Struktur ist bereits eingebettet
+3. AuditChain Genesis-Block erstellen
+4. Aufgabenspezifische Tasks erstellen
+5. Direkt ausfuehren — Company-Struktur ist bereits eingebettet
 
 **"Exportiere diese Company als .skill":**
 1. Abgeschlossene Mission analysieren
-2. Alles in eine autarke `.skill` Datei baken (Teams, Agenten, Skills, Orchestrierung)
+2. Alles in eine autarke `.skill` Datei baken (Teams, Agenten, Skills, Orchestrierung, AuditChain-Config)
 3. In `packages/` speichern und Registry aktualisieren
+
+**"Pruefe die Revisionssicherheit":**
+```bash
+python audit/verify.py .mission-forge/audit/CHAIN.jsonl --report
+```

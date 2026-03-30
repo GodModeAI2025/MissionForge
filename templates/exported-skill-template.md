@@ -19,6 +19,7 @@ metadata:
     ZIEL: {required: true, description: "Primaerziel dieser Mission"}
     MAX_AGENTS: {required: false, default: "3", description: "Max parallele Agenten"}
     MODEL_PROFILE: {required: false, default: "balanced", description: "quality | balanced | budget"}
+    MONTE_CARLO: {required: false, default: "false", description: "Monte-Carlo fuer critical Tasks"}
 allowed-tools: Bash Read Write Edit Agent Glob Grep TaskCreate TaskUpdate TaskGet TaskList
 ---
 
@@ -36,6 +37,13 @@ max_concurrent_agents: {{MAX_AGENTS}}
 model_profile: {{MODEL_PROFILE}}
 wave_gate: strict
 repair_attempts: 2
+auditchain:
+  enabled: true
+  auto_log: true
+execution:
+  monte_carlo: {{MONTE_CARLO_ENABLED}}
+  mc_variants: {{MC_VARIANTS}}
+  mc_selection: {{MC_SELECTION}}
 ```
 
 ---
