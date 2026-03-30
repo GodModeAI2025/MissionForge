@@ -15,7 +15,7 @@ Komplexe Aufgaben scheitern nicht an fehlender Intelligenz, sondern an fehlender
 - **Wellenbasierte Ausführung** — Arbeitspakete werden nach Abhängigkeiten in parallele Wellen gruppiert, bis zu 3 Agenten gleichzeitig
 - **Skill-Orchestrierung** — Vorhandene Skills werden automatisch erkannt und zugeordnet, fehlende on-the-fly generiert
 - **AuditChain** — Kryptographische SHA-256-Hash-Chain für revisionssichere Nachvollziehbarkeit jeder Agent-Entscheidung
-- **Monte-Carlo-Modus** — Kritische Tasks mehrfach mit Variationen ausführen, statistisch bestes Ergebnis wählen
+- **Varianz-Modus** — Kritische Tasks mehrfach mit Variationen ausführen, statistisch bestes Ergebnis wählen
 - **Export als .skill** — Bewährte Companies werden als autarke, parametrisierbare Dateien exportiert
 - **6-Ebenen-Verifikation** — Von der Einzelprüfung bis zur kryptographischen Integritätsprüfung
 
@@ -37,14 +37,14 @@ python audit/verify.py .mission-forge/audit/CHAIN.jsonl --report
 
 **Warum das wichtig ist:** Wenn KI-Agenten geschäftskritische Entscheidungen treffen, brauchen regulierte Branchen (Energie, Banken, Pharma) den Nachweis: Welcher Agent hat wann was entschieden, und wurde nachträglich nichts verändert.
 
-### Monte-Carlo-Modus
+### Varianz-Modus
 
 Kritische Tasks werden N-mal mit variierten Parametern ausgeführt. Alle Varianten werden bewertet, das beste Ergebnis ausgewählt — und alle Varianten in der AuditChain dokumentiert.
 
 ```yaml
 # In COMPANY.md aktivieren
 execution:
-  monte_carlo: true
+  varianz: true
   mc_variants: 3
   mc_selection: best_score
 ```
@@ -137,8 +137,8 @@ Bei Problemen: `FAILED` → `ESCALATED` → `SKIPPED` oder `ABORTED`
 | `GENESIS` | Company wird gespawnt | 2 |
 | `WAVE_PLAN_SEALED` | Wellenplan freigegeben | 5 |
 | `TASK_STATUS_CHANGE` | Jeder Statuswechsel | 6 |
-| `MONTE_CARLO_VARIANT` | MC-Variante ausgeführt | 6 |
-| `MONTE_CARLO_SELECTED` | MC-Auswahl getroffen | 6 |
+| `Varianz` | Variante ausgeführt | 6 |
+| `Varianz_SELECTED` | Auswahl getroffen | 6 |
 | `VERIFICATION_PASSED` | Verifikation bestanden | 7 |
 | `VERIFICATION_FAILED` | Verifikation gescheitert | 7 |
 | `CHAIN_SEALED` | Mission abgeschlossen | 8 |
