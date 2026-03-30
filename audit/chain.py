@@ -5,21 +5,30 @@ AuditChain — Kryptographische Beweiskette für MissionForge
 Append-only Hash-Chain: Jeder Eintrag referenziert den Hash des
 vorherigen. Manipulation eines Eintrags bricht die Kette.
 
+Skills und Artefakte werden mitgehasht — nachweisbar, nach welchen
+Anweisungen ein Agent gearbeitet hat und ob sich Ergebnisse verändert haben.
+
 Verwendung:
     from chain import AuditChain
 
     ac = AuditChain(".mission-forge/audit")
+    ac.genesis("MISSION-042", goals=["API bauen"], actors=["agent-01"],
+               skill_files={"main": "SKILL.md", "testing": "skills/test/SKILL.md"})
     ac.log("TASK_STATUS_CHANGE", ref="WP-003", data={
         "from": "IN_PROGRESS", "to": "DONE",
-        "agent": "implementierer-01",
-        "artifact_hash": "sha256:..."
+        "artifact_hash": AuditChain.hash_file("output.py"),
     })
+    ac.log_skill_change(ref="EXP-005", skill_name="humanizer",
+                        skill_path="skills/humanizer/SKILL.md",
+                        reason="Mutation: Personality-Schritt ergänzt")
 
 CLI:
-    python chain.py log   <audit_dir> <event> <ref> [key=value ...]
-    python chain.py verify <audit_dir>
-    python chain.py show   <audit_dir> [--last N]
-    python chain.py summary <audit_dir>
+    python chain.py log        <audit_dir> <event> <ref> [key=value ...]
+    python chain.py genesis    <audit_dir> <mission_id> [--skill name=path ...]
+    python chain.py verify     <audit_dir>
+    python chain.py show       <audit_dir> [--last N]
+    python chain.py summary    <audit_dir>
+    python chain.py hash-file  <audit_dir> <filepath>
 """
 
 import hashlib
@@ -80,22 +89,150 @@ class AuditChain:
 
         return entry
 
-    def genesis(self, mission_id: str, goals: list[str], actors: list[str]) -> dict:
-        """Genesis-Block: Erster Eintrag der Kette."""
+    def genesis(self, mission_id: str, goals: list[str], actors: list[str],
+                skill_files: Optional[dict[str, str]] = None) -> dict:
+        """Genesis-Block: Erster Eintrag der Kette.
+        
+        skill_files: Dict von {name: dateipfad} — jeder Skill wird gehasht
+                     und im Genesis-Block versiegelt. Damit ist nachweisbar,
+                     nach welchen Anweisungen die Agenten gearbeitet haben.
+        """
         if self.chain_file.exists() and self.chain_file.stat().st_size > 0:
             raise ValueError("Chain existiert bereits. Genesis nur einmal erlaubt.")
+
+        data = {
+            "mission_id": mission_id,
+            "goals": goals,
+            "actors": actors,
+            "chain_version": "1.1.0",
+            "algorithm": "sha256",
+        }
+
+        if skill_files:
+            data["skill_hashes"] = {
+                name: self.hash_file(path) for name, path in skill_files.items()
+            }
 
         return self.log(
             event=GENESIS_EVENT,
             ref=mission_id,
+            data=data,
+        )
+
+    def log_skill_change(self, ref: str, skill_name: str, skill_path: str,
+                         agent: str = "", reason: str = "") -> dict:
+        """Protokolliert eine Skill-Änderung mit dem Hash der neuen Version."""
+        return self.log(
+            event="SKILL_CHANGED",
+            ref=ref,
+            agent=agent,
             data={
-                "mission_id": mission_id,
-                "goals": goals,
-                "actors": actors,
-                "chain_version": "1.0.0",
-                "algorithm": "sha256",
+                "skill_name": skill_name,
+                "skill_hash": self.hash_file(skill_path),
+                "reason": reason,
             },
         )
+
+    # ── Execution Gateway ────────────────────────────────────
+
+    def gate_check(
+        self,
+        action: str,
+        agent: str,
+        ref: str = "",
+        policies: Optional[list[dict[str, Any]]] = None,
+    ) -> tuple[bool, dict]:
+        """
+        Pre-Flight-Prüfung: Darf der Agent diese Aktion ausführen?
+
+        policies: Liste von Policy-Dicts mit:
+            - "name": Name der Policy
+            - "allowed_actions": Liste erlaubter Actions (Wildcards mit *)
+            - "blocked_actions": Liste blockierter Actions
+            - "max_priority": Höchste erlaubte Priorität ("low"|"medium"|"high"|"critical")
+            - "require_approval": Wenn True, wird die Aktion als PENDING geloggt
+            - "allowed_agents": Liste erlaubter Agenten (leer = alle)
+
+        Gibt (allowed: bool, entry: dict) zurück.
+        Die Entscheidung wird in jedem Fall in der Chain protokolliert.
+        """
+        if not policies:
+            # Ohne Policies ist alles erlaubt, aber protokolliert
+            entry = self.log(
+                event="GATE_PASSED",
+                ref=ref,
+                agent=agent,
+                data={"action": action, "reason": "no_policies_defined"},
+            )
+            return True, entry
+
+        violations = []
+        for policy in policies:
+            pname = policy.get("name", "unnamed")
+
+            # Blocked Actions prüfen
+            blocked = policy.get("blocked_actions", [])
+            for pattern in blocked:
+                if self._action_matches(action, pattern):
+                    violations.append(f"{pname}: action '{action}' is blocked by '{pattern}'")
+
+            # Allowed Actions prüfen (wenn definiert, muss mindestens eine matchen)
+            allowed = policy.get("allowed_actions", [])
+            if allowed:
+                if not any(self._action_matches(action, p) for p in allowed):
+                    violations.append(f"{pname}: action '{action}' not in allowed list")
+
+            # Agent-Berechtigung prüfen
+            allowed_agents = policy.get("allowed_agents", [])
+            if allowed_agents and agent not in allowed_agents:
+                violations.append(f"{pname}: agent '{agent}' not authorized")
+
+        if violations:
+            entry = self.log(
+                event="GATE_BLOCKED",
+                ref=ref,
+                agent=agent,
+                data={
+                    "action": action,
+                    "violations": violations,
+                    "policy_count": len(policies),
+                },
+            )
+            return False, entry
+
+        # Approval-Check
+        needs_approval = any(p.get("require_approval") for p in policies)
+        if needs_approval:
+            entry = self.log(
+                event="GATE_PENDING_APPROVAL",
+                ref=ref,
+                agent=agent,
+                data={
+                    "action": action,
+                    "reason": "policy requires approval",
+                },
+            )
+            return False, entry
+
+        entry = self.log(
+            event="GATE_PASSED",
+            ref=ref,
+            agent=agent,
+            data={
+                "action": action,
+                "policies_checked": len(policies),
+            },
+        )
+        return True, entry
+
+    @staticmethod
+    def _action_matches(action: str, pattern: str) -> bool:
+        """Einfaches Pattern-Matching: 'file.*' matcht 'file.write', 'file.read' etc."""
+        if pattern == "*":
+            return True
+        if pattern.endswith("*"):
+            return action.startswith(pattern[:-1])
+        return action == pattern
 
     def seal(self, mission_id: str) -> dict:
         """Versiegelt die Chain mit einem finalen SEAL-Eintrag."""
@@ -248,6 +385,15 @@ class AuditChain:
         canonical = json.dumps(entry, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
         return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def hash_file(path: str) -> str:
+        """SHA-256 einer Datei. Für Skill-Hashes und Artefakt-Hashes."""
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                h.update(chunk)
+        return "sha256:" + h.hexdigest()
+
     def _get_last_hash(self) -> str:
         """Hash des letzten Eintrags oder Null-Hash bei leerer Chain."""
         if not self.chain_file.exists() or self.chain_file.stat().st_size == 0:
@@ -320,11 +466,37 @@ def _cli():
 
     elif cmd == "genesis":
         if len(sys.argv) < 4:
-            print("Usage: chain.py genesis <audit_dir> <mission_id>")
+            print("Usage: chain.py genesis <audit_dir> <mission_id> [--skill name=path ...]")
             sys.exit(1)
         mission_id = sys.argv[3]
-        entry = ac.genesis(mission_id, goals=["(set via API)"], actors=["(set via API)"])
+        skill_files = {}
+        for arg in sys.argv[4:]:
+            if arg.startswith("--skill") and "=" in arg:
+                # --skill=name=path
+                _, rest = arg.split("=", 1)
+                name, path = rest.split("=", 1)
+                skill_files[name] = path
+            elif "=" in arg and not arg.startswith("-"):
+                name, path = arg.split("=", 1)
+                skill_files[name] = path
+        entry = ac.genesis(
+            mission_id,
+            goals=["(set via API)"],
+            actors=["(set via API)"],
+            skill_files=skill_files if skill_files else None,
+        )
         print(f"✅ Genesis-Block erstellt: {entry['entry_hash']}")
+        if skill_files:
+            for name in skill_files:
+                print(f"   Skill versiegelt: {name}")
+
+    elif cmd == "hash-file":
+        if len(sys.argv) < 4:
+            print("Usage: chain.py hash-file <audit_dir> <filepath>")
+            sys.exit(1)
+        filepath = sys.argv[3]
+        h = AuditChain.hash_file(filepath)
+        print(f"{h}  {filepath}")
 
     elif cmd == "verify":
         intact, messages = ac.verify()

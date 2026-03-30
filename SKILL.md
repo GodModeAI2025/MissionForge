@@ -133,7 +133,10 @@ Jede Zustandsaenderung in einer Mission wird als Hash-Chain-Eintrag protokollier
 
 | Event                  | Wann                              | Phase |
 |------------------------|-----------------------------------|-------|
-| `GENESIS`              | Company wird gespawnt             | 2     |
+| `GENESIS`              | Company wird gespawnt (inkl. Skill-Hashes) | 2     |
+| `SKILL_CHANGED`        | Skill wurde mutiert/aktualisiert   | 6     |
+| `GATE_PASSED`          | Aktion durch Gateway freigegeben   | 6     |
+| `GATE_BLOCKED`         | Aktion durch Gateway blockiert     | 6     |
 | `WAVE_PLAN_SEALED`     | Wellenplan freigegeben             | 5     |
 | `TASK_STATUS_CHANGE`   | Jeder Statuswechsel eines WP      | 6     |
 | `MONTE_CARLO_VARIANT`  | Jede MC-Variante (wenn aktiviert)  | 6     |
@@ -254,11 +257,15 @@ ac = AuditChain(".mission-forge/audit")
 ac.genesis(
     mission_id="MISSION-2026-042",
     goals=["Ziel 1", "Ziel 2"],
-    actors=["orchestrator", "agent-alpha", "tester-01"]
+    actors=["orchestrator", "agent-alpha", "tester-01"],
+    skill_files={
+        "main": "SKILL.md",
+        "testing": ".mission-forge/skills/testing/SKILL.md",
+    },
 )
 ```
 
-**Pflicht:** Ohne Genesis-Block ist die Mission NICHT revisionssicher. Der Genesis-Block MUSS vor der ersten Ausfuehrung existieren.
+**Pflicht:** Ohne Genesis-Block ist die Mission NICHT revisionssicher. Der Genesis-Block MUSS vor der ersten Ausfuehrung existieren. Alle verwendeten Skills werden im Genesis-Block gehasht — damit ist nachweisbar, nach welchen Anweisungen die Agenten gearbeitet haben.
 
 **Verzeichnisstruktur nach Phase 2:**
 
@@ -456,6 +463,9 @@ ac.log("TASK_STATUS_CHANGE", ref=wp_id, agent=agent_name, data={
 | Eskalation | `ESCALATION` | from_agent, to_level, reason |
 | Plan-Aenderung | `WAVE_PLAN_AMENDED` | reason, changes, approved_by |
 | Skill aktiviert | `SKILL_ACTIVATED` | skill_name, agent, trust_level |
+| Skill mutiert | `SKILL_CHANGED` | skill_name, skill_hash, reason |
+| Gateway-Freigabe | `GATE_PASSED` | action, agent, policies_checked |
+| Gateway-Blockade | `GATE_BLOCKED` | action, agent, violations |
 
 ### 8.6 Monte-Carlo-Ausfuehrung
 
@@ -495,6 +505,44 @@ ac.log("MONTE_CARLO_SELECTED", ref=wp_id, data={
 ```
 
 **Alle Varianten bleiben in der Chain** — nachvollziehbar, warum welche gewaehlt wurde. Nicht-gewaehlte Varianten werden NICHT geloescht.
+
+### 8.7 Execution Gateway (Pre-Flight-Pruefung)
+
+Skills definieren, WAS ein Agent tun kann. Das Execution Gateway definiert, was er tun DARF. Bevor ein Agent eine Aktion ausfuehrt, prueft das Gateway die Aktion gegen definierte Policies. Wird die Aktion blockiert, landet ein `GATE_BLOCKED` Eintrag in der Chain. Wird sie freigegeben, ein `GATE_PASSED`.
+
+**Policy-Definition in COMPANY.md:**
+
+```yaml
+policies:
+  - name: prod-safety
+    blocked_actions: ["file.delete_prod", "db.drop_*", "deploy.production"]
+    allowed_agents: ["implementierer-alpha", "implementierer-beta"]
+  - name: scope-control
+    allowed_actions: ["file.write", "file.read", "test.run", "api.call"]
+```
+
+**Ablauf:**
+
+1. Agent will Aktion ausfuehren (z.B. `deploy.production`)
+2. Gateway prueft gegen alle definierten Policies
+3. Ergebnis wird in der Chain protokolliert:
+   - `GATE_PASSED`: Aktion erlaubt, Agent darf ausfuehren
+   - `GATE_BLOCKED`: Aktion blockiert, mit Grund und verletzter Policy
+   - `GATE_PENDING_APPROVAL`: Aktion erfordert manuelle Freigabe
+
+```python
+allowed, entry = ac.gate_check(
+    action="deploy.production",
+    agent="implementierer-alpha",
+    ref="WP-005",
+    policies=policies,
+)
+if not allowed:
+    # Aktion wird nicht ausgefuehrt, Blockierung ist in der Chain dokumentiert
+    escalate_to_orchestrator(entry)
+```
+
+**Unterschied zu Skills:** Ein Skill beschreibt Faehigkeiten und Instruktionen. Eine Policy beschreibt Grenzen und Berechtigungen. Beides wird in der Chain verankert: der Skill-Hash im Genesis-Block (nach WELCHEN Regeln gearbeitet wird) und die Gateway-Entscheidung bei jeder Aktion (OB gearbeitet werden darf).
 
 ---
 

@@ -24,18 +24,33 @@ def run_demo():
         shutil.rmtree(Path(demo_dir).parent)
     
     ac = AuditChain(demo_dir)
+    demo_base = Path(demo_dir).parent
     print("=" * 60)
     print("  AuditChain Demo — MissionForge Integration")
     print("=" * 60)
 
-    # Phase 2: Genesis
-    print("\n📌 Phase 2 — Company spawnen (Genesis-Block)")
+    # Dummy-Skills für die Demo erstellen
+    skill_dir = demo_base / "skills"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_main = skill_dir / "SKILL.md"
+    skill_main.write_text("# Main Orchestration Skill v1.0\n\nInstruktionen...\n")
+    skill_test = skill_dir / "TEST-SKILL.md"
+    skill_test.write_text("# Testing Skill v1.0\n\nTest-Anweisungen...\n")
+
+    # Phase 2: Genesis mit Skill-Hashes
+    print("\n📌 Phase 2 — Company spawnen (Genesis-Block mit Skill-Hashes)")
     genesis = ac.genesis(
         mission_id="MISSION-2026-042",
         goals=["REST-API mit Auth implementieren", "Tests schreiben", "Deployment"],
         actors=["orchestrator", "implementierer-alpha", "implementierer-beta", "tester-01"],
+        skill_files={
+            "main-orchestration": str(skill_main),
+            "testing": str(skill_test),
+        },
     )
     print(f"   ✅ Genesis: {genesis['entry_hash'][:40]}...")
+    for name, h in genesis["data"]["skill_hashes"].items():
+        print(f"   🔒 Skill versiegelt: {name} → {h[:32]}...")
 
     # Phase 5: Wellenplan versiegeln
     print("\n📌 Phase 5 — Wellenplan versiegeln")
@@ -88,6 +103,63 @@ def run_demo():
         data={"selected_variant": 2, "reason": "Höchster Score (0.91)"},
     )
     print("   ✅ Variante 2 ausgewählt (Score 0.91)")
+
+    # Skill-Mutation (Skill Forge Pattern)
+    print("\n📌 Phase 6 — Skill-Mutation protokollieren")
+    skill_main.write_text("# Main Orchestration Skill v1.1\n\nVerbesserte Instruktionen...\n")
+    ac.log_skill_change(
+        ref="EXP-001",
+        skill_name="main-orchestration",
+        skill_path=str(skill_main),
+        agent="skill-forge",
+        reason="Mutation: Personality-Schritt ergänzt, Score 0.74 → 0.90",
+    )
+    print(f"   🧬 Skill mutiert: main-orchestration → {AuditChain.hash_file(str(skill_main))[:32]}...")
+
+    # Execution Gateway
+    print("\n📌 Phase 6 — Execution Gateway (Pre-Flight-Prüfung)")
+    policies = [
+        {
+            "name": "prod-safety",
+            "blocked_actions": ["file.delete_prod", "db.drop_*", "deploy.production"],
+            "allowed_agents": ["implementierer-alpha", "implementierer-beta"],
+        },
+        {
+            "name": "scope-control",
+            "allowed_actions": ["file.write", "file.read", "test.run", "api.call"],
+        },
+    ]
+
+    # Erlaubte Aktion
+    allowed, entry = ac.gate_check(
+        action="file.write",
+        agent="implementierer-alpha",
+        ref="WP-005",
+        policies=policies,
+    )
+    print(f"   {'✅' if allowed else '❌'} file.write by implementierer-alpha → {'PASSED' if allowed else 'BLOCKED'}")
+
+    # Blockierte Aktion
+    allowed, entry = ac.gate_check(
+        action="deploy.production",
+        agent="implementierer-alpha",
+        ref="WP-005",
+        policies=policies,
+    )
+    print(f"   {'✅' if allowed else '🚫'} deploy.production by implementierer-alpha → {'PASSED' if allowed else 'BLOCKED'}")
+    if not allowed:
+        print(f"      Grund: {entry['data']['violations'][0]}")
+
+    # Unbekannter Agent
+    allowed, entry = ac.gate_check(
+        action="file.write",
+        agent="unbekannter-agent",
+        ref="WP-005",
+        policies=policies,
+    )
+    print(f"   {'✅' if allowed else '🚫'} file.write by unbekannter-agent → {'PASSED' if allowed else 'BLOCKED'}")
+    if not allowed:
+        print(f"      Grund: {entry['data']['violations'][0]}")
 
     # Phase 7: Verifikation
     print("\n📌 Phase 7 — Verifikation")
