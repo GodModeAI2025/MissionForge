@@ -1,0 +1,106 @@
+# MissionForge — Deutsche Lokalisierung (Default)
+# ================================================
+# Alle Benutzer-sichtbaren Texte fuer Templates, Validierung und Dashboard.
+
+locale: de
+name: Deutsch
+
+# ── Validierung ──────────────────────────────────────────────
+
+validation:
+  title: "Mission Forge — Struktur-Validierung"
+  directory: "Verzeichnis"
+  summary: "Zusammenfassung"
+  errors: "Fehler"
+  warnings: "Warnungen"
+  ok: "OK"
+  valid: "Mission-Struktur ist valide."
+  invalid: "Fehler gefunden. Bitte beheben."
+  missing_field: "Pflichtfeld '%s' fehlt im Frontmatter"
+  invalid_value: "Feld '%s' hat ungueltigen Wert: '%s'"
+  no_frontmatter: "Kein vollstaendiges YAML-Frontmatter"
+  file_missing: "Datei fehlt"
+  file_present: "vorhanden"
+  dir_missing: "Verzeichnis fehlt"
+
+# ── Dashboard ────────────────────────────────────────────────
+
+dashboard:
+  title: "MissionForge Dashboard"
+  mission: "Mission"
+  slug: "Slug"
+  status: "Status"
+  timestamp: "Stand"
+  progress: "Fortschritt"
+  completed: "abgeschlossen"
+  wave: "Welle"
+  work_packages: "Arbeitspaket-Status"
+  metrics: "Metriken"
+  agents_spawned: "Agenten gespawnt"
+  repair_cycles: "Reparatur-Zyklen"
+  escalations: "Eskalationen an User"
+  context_resets: "Context-Resets"
+  results: "Ergebnisse"
+  quality: "Qualitaet & Audit"
+  verification: "Verifikation"
+  auditchain: "AuditChain"
+  blockers: "Blocker"
+  auto_refresh: "Auto-Refresh alle %ds | Ctrl+C zum Beenden"
+
+# ── DAG Builder ──────────────────────────────────────────────
+
+dag:
+  title: "MissionForge DAG Builder — Automatische Wellenplanung"
+  tasks: "Tasks"
+  waves: "Wellen"
+  wave: "Welle"
+  parallel: "Tasks parallel"
+  critical_path: "Kritischer Pfad"
+  cycles_found: "ZYKLEN ERKANNT — Automatische Wellenplanung nicht moeglich!"
+  fix_deps: "Bitte depends-on-Felder in diesen Tasks korrigieren."
+  cycle: "Zyklus"
+  dangling: "Nicht aufgeloeste Abhaengigkeiten"
+  not_exists: "existiert nicht"
+  files_updated: "TASK.md-Dateien aktualisiert (wave-Feld geschrieben)"
+  no_tasks: "Keine TASK.md-Dateien gefunden."
+
+# ── Schema Validator ─────────────────────────────────────────
+
+schema:
+  title: "MissionForge Schema Validator"
+  files_checked: "Dateien geprueft"
+  fields_ok: "Felder OK"
+  passed: "Schema-Validierung bestanden"
+  failed: "Fehler gefunden. Bitte beheben."
+  cross_ref_missing: "referenziert nicht-existierenden Task"
+  agent_not_found: "Agent nicht gefunden"
+  wave_conflict: "haengt von '%s' (Wave %d) ab — Abhaengigkeit muss in frueherer Wave sein"
+  zero_drop: "ist in der Traceability-Matrix aber in keiner TASK.md referenziert (Zero-Drop-Verletzung)"
+
+# ── Fehler-Kategorien ────────────────────────────────────────
+
+errors:
+  E1: "Temporaerer API-Fehler / Rate-Limit"
+  E2: "Context-Limit erreicht"
+  E3: "Qualitaetsmangel — Akzeptanzkriterien nicht erfuellt"
+  E4: "Blocker — fehlende Abhaengigkeit oder Permission"
+  E5: "Timeout — Agent antwortet nicht"
+
+# ── Status-Werte ─────────────────────────────────────────────
+
+status:
+  OPEN: "Noch nicht begonnen"
+  IN_PROGRESS: "In Bearbeitung"
+  DONE: "Erledigt"
+  VERIFIED: "Verifiziert"
+  FAILED: "Fehlgeschlagen"
+  ESCALATED: "Eskaliert"
+  SKIPPED: "Uebersprungen"
+  ABORTED: "Abgebrochen"
+
+# ── Operational Modes ────────────────────────────────────────
+
+modes:
+  lite: "Leichtgewichtig (1-3 WPs)"
+  standard: "Standard (3-15 WPs)"
+  enterprise: "Enterprise (Compliance, Audit)"

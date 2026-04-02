@@ -1,0 +1,106 @@
+# MissionForge — English Localization
+# ================================================
+# All user-facing strings for templates, validation and dashboard.
+
+locale: en
+name: English
+
+# ── Validation ───────────────────────────────────────────────
+
+validation:
+  title: "Mission Forge — Structure Validation"
+  directory: "Directory"
+  summary: "Summary"
+  errors: "Errors"
+  warnings: "Warnings"
+  ok: "OK"
+  valid: "Mission structure is valid."
+  invalid: "Errors found. Please fix."
+  missing_field: "Required field '%s' missing in frontmatter"
+  invalid_value: "Field '%s' has invalid value: '%s'"
+  no_frontmatter: "No complete YAML frontmatter"
+  file_missing: "File missing"
+  file_present: "present"
+  dir_missing: "Directory missing"
+
+# ── Dashboard ────────────────────────────────────────────────
+
+dashboard:
+  title: "MissionForge Dashboard"
+  mission: "Mission"
+  slug: "Slug"
+  status: "Status"
+  timestamp: "Updated"
+  progress: "Progress"
+  completed: "completed"
+  wave: "Wave"
+  work_packages: "Work Package Status"
+  metrics: "Metrics"
+  agents_spawned: "Agents spawned"
+  repair_cycles: "Repair cycles"
+  escalations: "Escalations to user"
+  context_resets: "Context resets"
+  results: "Results"
+  quality: "Quality & Audit"
+  verification: "Verification"
+  auditchain: "AuditChain"
+  blockers: "Blockers"
+  auto_refresh: "Auto-refresh every %ds | Ctrl+C to exit"
+
+# ── DAG Builder ──────────────────────────────────────────────
+
+dag:
+  title: "MissionForge DAG Builder — Automatic Wave Planning"
+  tasks: "Tasks"
+  waves: "Waves"
+  wave: "Wave"
+  parallel: "tasks in parallel"
+  critical_path: "Critical Path"
+  cycles_found: "CYCLES DETECTED — Automatic wave planning not possible!"
+  fix_deps: "Please fix depends-on fields in these tasks."
+  cycle: "Cycle"
+  dangling: "Unresolved dependencies"
+  not_exists: "does not exist"
+  files_updated: "TASK.md files updated (wave field written)"
+  no_tasks: "No TASK.md files found."
+
+# ── Schema Validator ─────────────────────────────────────────
+
+schema:
+  title: "MissionForge Schema Validator"
+  files_checked: "Files checked"
+  fields_ok: "Fields OK"
+  passed: "Schema validation passed"
+  failed: "Errors found. Please fix."
+  cross_ref_missing: "references non-existent task"
+  agent_not_found: "Agent not found"
+  wave_conflict: "depends on '%s' (Wave %d) — dependency must be in earlier wave"
+  zero_drop: "is in traceability matrix but not referenced in any TASK.md (zero-drop violation)"
+
+# ── Error Categories ─────────────────────────────────────────
+
+errors:
+  E1: "Transient API error / rate limit"
+  E2: "Context limit exceeded"
+  E3: "Quality failure — acceptance criteria not met"
+  E4: "Blocker — missing dependency or permission"
+  E5: "Timeout — agent not responding"
+
+# ── Status Values ────────────────────────────────────────────
+
+status:
+  OPEN: "Not started"
+  IN_PROGRESS: "In progress"
+  DONE: "Done"
+  VERIFIED: "Verified"
+  FAILED: "Failed"
+  ESCALATED: "Escalated"
+  SKIPPED: "Skipped"
+  ABORTED: "Aborted"
+
+# ── Operational Modes ────────────────────────────────────────
+
+modes:
+  lite: "Lightweight (1-3 WPs)"
+  standard: "Standard (3-15 WPs)"
+  enterprise: "Enterprise (compliance, audit)"

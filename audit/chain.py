@@ -133,6 +133,79 @@ class AuditChain:
             },
         )
 
+    # ── Phase-D Erweiterungen ────────────────────────────────
+
+    def log_cost(self, ref: str, agent: str, input_tokens: int,
+                 output_tokens: int, cost_usd: float, model: str = "") -> dict:
+        """Protokolliert Token-Verbrauch und Kosten eines Agenten."""
+        return self.log(
+            event="COST_TRACKED",
+            ref=ref,
+            agent=agent,
+            data={
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cost_usd": round(cost_usd, 4),
+                "model": model,
+            },
+        )
+
+    def log_context_budget(self, ref: str, agent: str,
+                           estimated_tokens: int, budget_tokens: int,
+                           utilization_pct: float) -> dict:
+        """Protokolliert Context-Budget vor Agent-Spawn."""
+        return self.log(
+            event="CONTEXT_BUDGET",
+            ref=ref,
+            agent=agent,
+            data={
+                "estimated_tokens": estimated_tokens,
+                "budget_tokens": budget_tokens,
+                "utilization_pct": round(utilization_pct, 1),
+                "within_budget": estimated_tokens <= budget_tokens,
+            },
+        )
+
+    def log_error(self, ref: str, agent: str, category: str,
+                  description: str, attempt: int = 1,
+                  recommendation: str = "") -> dict:
+        """Protokolliert einen kategorisierten Fehler (E1-E5)."""
+        return self.log(
+            event="ERROR_CATEGORIZED",
+            ref=ref,
+            agent=agent,
+            data={
+                "category": category,
+                "description": description,
+                "attempt": attempt,
+                "recommendation": recommendation,
+            },
+        )
+
+    def log_mcp_call(self, ref: str, agent: str, server: str,
+                     tool: str, input_hash: str = "",
+                     output_hash: str = "") -> dict:
+        """Protokolliert einen MCP-Tool-Aufruf."""
+        return self.log(
+            event="MCP_TOOL_CALL",
+            ref=ref,
+            agent=agent,
+            data={
+                "server": server,
+                "tool": tool,
+                "input_hash": input_hash,
+                "output_hash": output_hash,
+            },
+        )
+
+    def log_mode_set(self, ref: str, mode: str) -> dict:
+        """Protokolliert den gewählten Operational Mode."""
+        return self.log(
+            event="MODE_SET",
+            ref=ref,
+            data={"mode": mode},
+        )
+
     # ── Execution Gateway ────────────────────────────────────
 
     def gate_check(
