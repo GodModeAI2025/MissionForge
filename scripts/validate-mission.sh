@@ -206,6 +206,45 @@ else
     warn "Kein packages/ Verzeichnis — noch keine Exports"
 fi
 
+# 8. Schema-Validierung (wenn validate-schema.py verfuegbar)
+echo ""
+echo "--- 8. Schema-Validierung ---"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$SCRIPT_DIR/validate-schema.py" ]; then
+    if python3 "$SCRIPT_DIR/validate-schema.py" "$MISSION_DIR" > /dev/null 2>&1; then
+        ok "Schema-Validierung bestanden"
+    else
+        SCHEMA_ERRORS=$(python3 "$SCRIPT_DIR/validate-schema.py" "$MISSION_DIR" --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('errors',[])))" 2>/dev/null || echo "?")
+        error "Schema-Validierung: $SCHEMA_ERRORS Fehler (Details: python3 scripts/validate-schema.py $MISSION_DIR)"
+    fi
+else
+    warn "validate-schema.py nicht gefunden — Schema-Pruefung uebersprungen"
+fi
+
+# 9. DAG-Pruefung (wenn build-dag.py verfuegbar)
+echo ""
+echo "--- 9. DAG / Abhaengigkeits-Pruefung ---"
+
+if [ -f "$SCRIPT_DIR/build-dag.py" ]; then
+    if [ -d "$MISSION_DIR/tasks" ]; then
+        DAG_OUTPUT=$(python3 "$SCRIPT_DIR/build-dag.py" "$MISSION_DIR" --json 2>&1)
+        DAG_EXIT=$?
+        if [ $DAG_EXIT -eq 0 ]; then
+            TOTAL_WAVES=$(echo "$DAG_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('total_waves',0))" 2>/dev/null || echo "?")
+            ok "DAG valide — $TOTAL_WAVES Wellen berechnet (keine Zyklen)"
+        elif [ $DAG_EXIT -eq 1 ]; then
+            error "DAG enthaelt Zyklen — automatische Wellenplanung nicht moeglich"
+        else
+            warn "DAG-Pruefung fehlgeschlagen (Exit $DAG_EXIT)"
+        fi
+    else
+        warn "Kein tasks/ Verzeichnis — DAG-Pruefung uebersprungen"
+    fi
+else
+    warn "build-dag.py nicht gefunden — DAG-Pruefung uebersprungen"
+fi
+
 # Zusammenfassung
 echo ""
 echo "============================================"
