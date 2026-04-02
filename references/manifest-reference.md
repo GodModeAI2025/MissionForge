@@ -22,6 +22,7 @@ angepasst fuer Mission Forge.
 | `metadata.created`      | Recommended| string   | ISO-8601 Erstellungsdatum                                 |
 | `metadata.source-task`  | Recommended| string   | Gekuerzte Ursprungsaufgabe                                |
 | `metadata.priority`     | Optional   | string   | `critical`, `high`, `medium`, `low`                       |
+| `metadata.max-cost`     | Optional   | string   | Budget-Limit fuer gesamte Mission in USD, z.B. `"10.00"`  |
 | `metadata.sources`      | Optional   | list     | Externe Referenzen mit Provenienz (repo, sha, hash)       |
 
 ### Body-Struktur
@@ -96,6 +97,8 @@ angepasst fuer Mission Forge.
 | `metadata.max-context-usage`| Optional   | string | Maximale Context-Nutzung, z.B. `"60%"`     |
 | `metadata.tools-allowed`    | Recommended| string | Erlaubte Tools (Least Privilege)           |
 | `metadata.read-only`        | Optional   | bool   | `true` fuer Checker/Pruefer-Rollen         |
+| `metadata.permission-profile`| Optional  | string | `executor`, `reviewer`, `planner`, `orchestrator` |
+| `metadata.max-cost`         | Optional   | string | Budget-Limit in USD, z.B. `"2.00"`         |
 
 ### Body-Struktur
 
@@ -285,3 +288,70 @@ angepasst fuer Mission Forge.
 | Ressourcen  | Scripts, References, Assets         | Variabel                 |
 
 **Regel**: Katalog-Stufe immer zuerst. Aktivierung nur bei Bedarf. Ressourcen nur bei Ausfuehrung.
+
+---
+
+## Permission-Profile (Least Privilege)
+
+Inspiriert von claude-codes `PermissionMode`-System. Jeder Agent erhaelt ein Profil
+das seine erlaubten Aktionen einschraenkt.
+
+| Profil         | Tools                                         | Dateizugriff   | STATE.md    |
+|----------------|-----------------------------------------------|----------------|-------------|
+| `executor`     | Read Write Edit Bash Glob Grep                | Eigener Scope  | read-only   |
+| `reviewer`     | Read Glob Grep                                | Alle (ro)      | read-only   |
+| `planner`      | Read Glob Grep Agent                          | Alle (ro)      | read-only   |
+| `orchestrator` | Read Write Edit Bash Agent Glob Grep          | Alle           | read-write  |
+
+**Validierung**: `validate-schema.py` prueft ob `tools-allowed` zum `permission-profile` passt.
+Der Mission-Orchestrator soll beim Spawnen nur die Tools des Profils weitergeben.
+
+### Profil-Regeln
+
+1. **Executor**: Darf nur Dateien innerhalb seines WP-Scopes aendern
+2. **Reviewer**: Darf KEINE Dateien aendern, nur lesen und bewerten
+3. **Planner**: Darf Sub-Agenten spawnen aber keine Dateien aendern
+4. **Orchestrator**: Voller Zugriff inkl. STATE.md Schreibrechte
+
+---
+
+## Cost & Token Tracking
+
+Inspiriert von claude-codes Echtzeit-Kostenabschaetzung.
+
+### Company-Level Budget
+
+In COMPANY.md `metadata.max-cost` definiert das Gesamt-Budget.
+Bei Ueberschreitung von 80% wird eine Warnung im Entscheidungslog eingetragen.
+Bei Ueberschreitung von 100% wird die Mission eskaliert.
+
+### Agent-Level Tracking
+
+Jeder Agent soll in seiner SUMMARY.md einen `## Ressourcen`-Abschnitt liefern:
+
+```markdown
+## Ressourcen
+
+| Metrik          | Wert    |
+|-----------------|---------|
+| Input-Tokens    | ~3.200  |
+| Output-Tokens   | ~1.800  |
+| Geschaetzte Kosten | $0.12 |
+| Modell          | sonnet  |
+```
+
+### STATE.md Cost-Sektion
+
+Der Orchestrator aggregiert Kosten in STATE.md:
+
+```markdown
+## Kosten-Tracking
+
+| Welle | Agenten | Input-Tokens | Output-Tokens | Kosten (est.) |
+|-------|---------|--------------|---------------|---------------|
+| 1     | 3       | ~12.000      | ~6.000        | $0.42         |
+| 2     | 2       | ~8.000       | ~4.500        | $0.28         |
+| Gesamt| 5       | ~20.000      | ~10.500       | $0.70         |
+
+Budget: $10.00 | Verbraucht: $0.70 (7%) | Verbleibend: $9.30
+```

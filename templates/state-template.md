@@ -66,3 +66,11 @@ total-agents: {{N}}
 | Eskalationen an User      | 0    |
 | Context-Resets             | 0    |
 | Skills aktiviert          | 0    |
+
+## Kosten-Tracking
+
+| Welle | Agenten | Input-Tokens | Output-Tokens | Kosten (est.) |
+|-------|---------|--------------|---------------|---------------|
+| —     | —       | —            | —             | —             |
+
+Budget: {{MAX_COST}} | Verbraucht: $0.00 (0%) | Verbleibend: {{MAX_COST}}

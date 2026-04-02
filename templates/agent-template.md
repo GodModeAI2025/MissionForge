@@ -17,6 +17,8 @@ metadata:
   max-context-usage: "60%"
   tools-allowed: "{{Read Write Edit Bash Agent Glob Grep}}"
   read-only: {{false | true}}
+  permission-profile: {{executor | reviewer | planner | orchestrator}}
+  max-cost: "{{2.00}}"
 ---
 
 # {{ROLLENNAME}}
