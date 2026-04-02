@@ -54,6 +54,12 @@ metadata:
 ## Ausfuehrungskonfiguration
 
 ```yaml
+# Operational Mode (siehe references/configuration.md)
+mode: {{lite | standard | enterprise}}
+#   lite:       Kein Sub-Orchestrator, keine formale Verifikation, kein Export
+#   standard:   Voller 9-Phasen-Workflow (Default)
+#   enterprise: Standard + AuditChain + Monte-Carlo + Policy-Enforcement
+
 auditchain:
   enabled: true              # Kryptographische Hash-Chain (empfohlen: immer true)
 
@@ -61,6 +67,11 @@ execution:
   monte_carlo: false         # true fuer Monte-Carlo bei critical Tasks
   mc_variants: 3             # Anzahl Varianten (nur wenn monte_carlo: true)
   mc_selection: best_score   # best_score | consensus | user_choice
+  max-parallel-agents: 3     # Maximale gleichzeitige Agenten
+
+cost:
+  budget: "{{10.00}}"        # Gesamt-Budget in USD
+  warn-threshold: 80         # Warnung bei X% verbraucht
 ```
 
 ## Includes
