@@ -18,7 +18,7 @@
 
 ### Schema & DAG Validierung (standard + enterprise)
 - [ ] `python scripts/validate-schema.py` bestanden
-- [ ] `python scripts/build-dag.py` — Abhaengigkeitsgraph azyklisch
+- [ ] `python scripts/build-dag.py` — Abhaengigkeitsgraph azyklisch, keine Schreibkonflikte in parallelen Wellen
 - [ ] Context-Budget pro Agent berechnet und unter Limit
 
 ### Enterprise-Checks (nur enterprise-Modus)

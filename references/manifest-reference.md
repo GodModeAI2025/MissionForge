@@ -176,6 +176,7 @@ angepasst fuer Mission Forge.
 | `priority`            | Recommended| string | `critical`, `high`, `medium`, `low`          |
 | `wave`                | Required   | int    | Wellen-Nummer fuer Scheduling                |
 | `depends-on`          | Optional   | list   | Liste von TASK-Slugs                         |
+| `writes`              | Optional   | list   | Schreibbereich: Pfade/Globs relativ zum Projekt (`src/api/`, `docs/*.md`). Parallele Tasks einer Welle duerfen sich nicht ueberlappen, `build-dag.py` prueft das |
 | `requirements`        | Required   | list   | Liste von REQ-IDs die abgedeckt werden       |
 | `tags`                | Optional   | list   | Klassifikation                               |
 | `metadata`            | Optional   | map    | Beliebige Schluessel-Wert-Paare              |
