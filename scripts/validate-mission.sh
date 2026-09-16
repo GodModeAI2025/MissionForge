@@ -235,6 +235,8 @@ if [ -f "$SCRIPT_DIR/build-dag.py" ]; then
             ok "DAG valide — $TOTAL_WAVES Wellen berechnet (keine Zyklen)"
         elif [ $DAG_EXIT -eq 1 ]; then
             error "DAG enthaelt Zyklen — automatische Wellenplanung nicht moeglich"
+        elif [ $DAG_EXIT -eq 3 ]; then
+            error "Schreibkonflikt — parallele Tasks einer Welle schreiben in denselben Bereich (python3 scripts/build-dag.py zeigt Details)"
         else
             warn "DAG-Pruefung fehlgeschlagen (Exit $DAG_EXIT)"
         fi

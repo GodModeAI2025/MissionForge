@@ -355,7 +355,7 @@ Analysiere WP-Abhaengigkeiten als DAG. Pruefe auf Zyklen.
 
 ### 7.2 Wellen zuordnen
 
-Gruppiere unabhaengige WPs in parallele Wellen:
+Gruppiere unabhaengige WPs in parallele Wellen. Unabhaengig heisst zweierlei: keine `depends-on`-Beziehung **und** kein gemeinsamer Schreibbereich. Dafuer deklariert eine TASK.md optional `writes` (Dateien, Ordner oder Globs); Tasks ohne Angabe prueft `build-dag.py` nicht, bestehende Missionen bleiben gueltig. Zwei parallele Agenten, die dieselbe Datei aendern, ueberschreiben einander ohne Fehlermeldung; das Zero-Drop-Prinzip wuerde still verletzt. Ueberlappen sich Bereiche, wird einer der Tasks per `depends-on` in eine spaetere Welle geschoben oder der Schnitt geaendert.
 
 | Welle | Arbeitspakete        | Parallelitaet | Vorbedingung          |
 |-------|----------------------|---------------|-----------------------|
@@ -373,6 +373,7 @@ Gruppiere unabhaengige WPs in parallele Wellen:
 
 - [ ] Jedes WP genau einer Welle zugeordnet
 - [ ] Keine Welle referenziert ein WP aus einer spaeteren Welle
+- [ ] Parallele WPs einer Welle haben getrennte Schreibbereiche (`writes`, geprueft von `build-dag.py`, Exit 3 bei Konflikt)
 - [ ] Jedes WP hat zugewiesenen Agenten
 - [ ] Alle Skills verfuegbar
 - [ ] Abhaengigkeitsgraph azyklisch

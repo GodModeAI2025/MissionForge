@@ -11,6 +11,8 @@ priority: {{critical | high | medium | low}}
 wave: {{WELLEN_NUMMER}}
 depends-on:
   - {{wp-id-der-abhaengigkeit}}
+writes:
+  - {{pfad/oder/glob — z.B. src/api/ oder docs/*.md}}
 requirements:
   - {{REQ-ID-1}}
   - {{REQ-ID-2}}

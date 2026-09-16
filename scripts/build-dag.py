@@ -4,7 +4,8 @@ MissionForge DAG Builder — Automatische Wellenplanung
 ======================================================
 Liest alle TASK.md-Dateien einer Mission, extrahiert depends-on-Felder,
 baut einen gerichteten Abhängigkeitsgraphen, erkennt Zyklen und berechnet
-Waves automatisch per topologischer Sortierung.
+Waves automatisch per topologischer Sortierung. Prueft ausserdem, ob parallel
+laufende Tasks derselben Welle ueberlappende Schreibbereiche (writes) haben.
 
 Usage:
     python scripts/build-dag.py [path-to-.mission-forge]
@@ -13,9 +14,10 @@ Usage:
     python scripts/build-dag.py .mission-forge --critical-path # Zeigt kritischen Pfad
     python scripts/build-dag.py .mission-forge --test          # Selbsttest
 
-Exit codes: 0 = OK, 1 = Zyklen erkannt, 2 = Fehler
+Exit codes: 0 = OK, 1 = Zyklen erkannt, 2 = Fehler, 3 = Schreibkonflikt in einer Welle
 """
 
+import fnmatch
 import json
 import os
 import re
@@ -84,6 +86,91 @@ def parse_frontmatter(filepath: Path) -> dict:
     return result
 
 
+# ── Schreibbereiche ─────────────────────────────────────────
+
+def _normalize_scope(scope: str) -> str:
+    scope = scope.strip()
+    while scope.startswith("./"):
+        scope = scope[2:]
+    return scope
+
+
+def _scope_base(scope: str) -> str:
+    """Fester Verzeichnis-Anteil vor dem ersten Wildcard-Segment."""
+    parts = []
+    for part in scope.split("/"):
+        if any(ch in part for ch in "*?["):
+            break
+        parts.append(part)
+    return "/".join(parts).rstrip("/")
+
+
+def _is_glob(scope: str) -> bool:
+    return any(ch in scope for ch in "*?[")
+
+
+def _paths_related(x: str, y: str) -> bool:
+    """Gleicher Pfad oder einer liegt unterhalb des anderen ("" = Projektwurzel)."""
+    return (x == "" or y == "" or x == y
+            or y.startswith(x + "/") or x.startswith(y + "/"))
+
+
+def _literal_suffix(scope: str) -> str:
+    """Fester Rest des letzten Segments nach dem letzten Wildcard-Zeichen.
+
+    `docs/*.md` -> `.md`, `src/**` -> ``, `src/*/config.json` -> `config.json`.
+    """
+    last = scope.rstrip("/").split("/")[-1]
+    idx = max(last.rfind(ch) for ch in "*?]")
+    return last[idx + 1:]
+
+
+def scopes_overlap(a: str, b: str) -> bool:
+    """True, wenn zwei Schreibbereiche dieselbe Datei treffen koennen.
+
+    Pfade relativ zum Projekt, Globs erlaubt (`src/api/**`, `docs/*.md`),
+    ein abschliessendes `/` meint den ganzen Ordner. Ein fester Pfad, unter
+    dem ein anderer Bereich liegt, gilt ebenfalls als Ordner (`src` vs.
+    `src/app.py`). Bei zwei Globs ist die Pruefung konservativ: Konflikt,
+    sobald die festen Verzeichnis-Anteile zusammenhaengen und die festen
+    Dateiendungen sich nicht ausschliessen (`docs/*.md` vs. `docs/*.png`
+    ist kein Konflikt).
+    """
+    a, b = _normalize_scope(a), _normalize_scope(b)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+
+    glob_a, glob_b = _is_glob(a), _is_glob(b)
+
+    if not glob_a and not glob_b:
+        ta, tb = a.rstrip("/"), b.rstrip("/")
+        return ta == tb or tb.startswith(ta + "/") or ta.startswith(tb + "/")
+
+    if glob_a and glob_b:
+        if not _paths_related(_scope_base(a), _scope_base(b)):
+            return False
+        sa, sb = _literal_suffix(a), _literal_suffix(b)
+        if sa and sb and not (sa.endswith(sb) or sb.endswith(sa)):
+            return False
+        return True
+
+    literal, pattern = (b, a) if glob_a else (a, b)
+    lit = literal.rstrip("/")
+    if fnmatch.fnmatch(lit, pattern):
+        return True
+    base = _scope_base(pattern)
+    # Der feste Pfad ist ein Ordner, unter dem der Glob liegt.
+    if base == lit or base.startswith(lit + "/"):
+        return True
+    # Ausdruecklicher Ordner innerhalb des Glob-Bereichs: Dateien darin
+    # koennen passen.
+    if literal.endswith("/") and _paths_related(base, lit):
+        return True
+    return False
+
+
 # ── DAG-Kernlogik ───────────────────────────────────────────
 
 class DAGBuilder:
@@ -110,8 +197,13 @@ class DAGBuilder:
             if isinstance(deps, str):
                 deps = [d.strip() for d in deps.split(",") if d.strip()]
 
+            writes = fm.get("writes", [])
+            if isinstance(writes, str):
+                writes = [w.strip() for w in writes.split(",") if w.strip()]
+
             self.tasks[slug] = {
                 "frontmatter": fm,
+                "writes": writes,
                 "path": str(task_file),
                 "name": fm.get("name", slug),
                 "status": fm.get("status", "OPEN"),
@@ -224,6 +316,36 @@ class DAGBuilder:
         path.reverse()
         return path
 
+    def check_write_conflicts(self, waves: dict[str, int]) -> list[dict]:
+        """Findet Tasks derselben Welle mit ueberlappenden Schreibbereichen.
+
+        Tasks einer Welle laufen parallel. Schreiben zwei davon in dieselbe
+        Datei oder denselben Ordner, gewinnt der letzte Schreiber, und die
+        Arbeit des anderen verschwindet ohne Fehlermeldung. Geprueft werden
+        nur Tasks, die `writes` deklarieren; ohne Angabe ist keine Aussage
+        moeglich. Die Pruefung ist bewusst konservativ: im Zweifel gilt eine
+        Ueberlappung als Konflikt.
+        """
+        conflicts = []
+        by_wave: dict[int, list[str]] = defaultdict(list)
+        for slug, wave in waves.items():
+            if wave > 0 and self.tasks[slug]["writes"]:
+                by_wave[wave].append(slug)
+
+        for wave, slugs in sorted(by_wave.items()):
+            slugs = sorted(slugs)
+            for i, a in enumerate(slugs):
+                for b in slugs[i + 1:]:
+                    for pa in self.tasks[a]["writes"]:
+                        for pb in self.tasks[b]["writes"]:
+                            if scopes_overlap(pa, pb):
+                                conflicts.append({
+                                    "wave": wave,
+                                    "tasks": [a, b],
+                                    "scopes": [pa, pb],
+                                })
+        return conflicts
+
     def check_dangling_refs(self) -> list[tuple[str, str]]:
         """Findet Abhängigkeiten die auf nicht-existierende Tasks zeigen."""
         dangling = []
@@ -271,12 +393,14 @@ class DAGBuilder:
                 "assigned-to": task["assigned-to"],
                 "priority": task["priority"],
                 "status": task["status"],
+                "writes": task["writes"],
             })
 
         result = {
             "total_tasks": len(self.tasks),
             "total_waves": total_waves,
             "critical_path": self.critical_path(),
+            "write_conflicts": self.check_write_conflicts(waves),
             "waves": {str(w): tasks for w, tasks in sorted(wave_groups.items())},
         }
         return json.dumps(result, indent=2, ensure_ascii=False)
@@ -341,6 +465,17 @@ def format_dag(dag: DAGBuilder, waves: dict[str, int], show_critical: bool = Fal
         for slug in cyclic:
             deps = dag.edges.get(slug, [])
             lines.append(f"  {slug} ← {', '.join(deps)}")
+
+    # Schreibkonflikte
+    conflicts = dag.check_write_conflicts(waves)
+    if conflicts:
+        lines.append(f"\n{RED}✗ Schreibkonflikte (parallele Tasks derselben Welle):{NC}")
+        for c in conflicts:
+            lines.append(
+                f"  Welle {c['wave']}: {c['tasks'][0]} ({c['scopes'][0]}) "
+                f"↔ {c['tasks'][1]} ({c['scopes'][1]})"
+            )
+        lines.append("  → Schreibbereiche trennen oder einen Task per depends-on in eine spaetere Welle schieben.")
 
     # Critical Path
     if show_critical:
@@ -430,6 +565,43 @@ def self_test():
         assert "wave: 3" in content, "wave: 3 nicht in wp-004 geschrieben"
         print(f"  ✅ --apply: {updated} Dateien aktualisiert")
 
+        # Schreibkonflikte: wp-002 und wp-003 laufen parallel in Welle 2
+        assert dag.check_write_conflicts(waves) == [], "Ohne writes kein Konflikt erwartet"
+        dag.tasks["wp-002"]["writes"] = ["src/api/"]
+        dag.tasks["wp-003"]["writes"] = ["tests/**", "src/api/handlers.py"]
+        dag.tasks["wp-004"]["writes"] = ["src/api/"]  # andere Welle, kein Konflikt
+        conflicts = dag.check_write_conflicts(waves)
+        assert len(conflicts) == 1, f"Erwartet 1 Konflikt: {conflicts}"
+        assert conflicts[0]["wave"] == 2 and conflicts[0]["tasks"] == ["wp-002", "wp-003"]
+        dag.tasks["wp-003"]["writes"] = ["tests/**", "docs/*.md"]
+        assert dag.check_write_conflicts(waves) == [], "Getrennte Bereiche melden Konflikt"
+        print(f"  ✅ Schreibkonflikte in parallelen Wellen erkannt")
+
+        for a, b, expected in [
+            ("src/app.py", "src/app.py", True),
+            ("./src/app.py", "src/app.py", True),
+            ("src/**", "src/api/x.py", True),
+            ("src/", "src/api/x.py", True),
+            ("docs/*.md", "docs/intro.md", True),
+            ("src/api/", "src/apiclient/x.py", False),
+            ("docs/*.md", "src/app.py", False),
+            ("**", "irgendwas.txt", True),
+            ("src", "src/app.py", True),
+            ("docs/", "docs/*.md", True),
+            ("src/api/", "src/*.py", True),
+            ("tests/**", "tests/*.py", True),
+            # Fehlalarme vermeiden: fremde Endung, fremder Ordner
+            ("docs/*.md", "docs/logo.png", False),
+            ("*.md", "src/app.py", False),
+            ("docs/*.md", "docs/*.png", False),
+            ("**/*.test.ts", "src/app.py", False),
+            ("src/*/config.json", "src/*/*.md", False),
+            ("src/api/**", "docs/*.md", False),
+        ]:
+            assert scopes_overlap(a, b) is expected, f"scopes_overlap({a!r}, {b!r}) != {expected}"
+            assert scopes_overlap(b, a) is expected, f"scopes_overlap({b!r}, {a!r}) != {expected}"
+        print(f"  ✅ Ueberlappungsregeln fuer Pfade und Globs")
+
         print(f"\n✅ Alle Tests bestanden!")
         return 0
 
@@ -479,6 +651,8 @@ def main():
         updated = dag.apply_waves(waves)
         print(f"\n✅ {updated} TASK.md-Dateien aktualisiert (wave-Feld geschrieben)")
 
+    if dag.check_write_conflicts(waves):
+        sys.exit(3)
     sys.exit(0)
 
 
