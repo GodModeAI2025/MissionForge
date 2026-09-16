@@ -105,23 +105,68 @@ def _scope_base(scope: str) -> str:
     return "/".join(parts).rstrip("/")
 
 
+def _is_glob(scope: str) -> bool:
+    return any(ch in scope for ch in "*?[")
+
+
+def _paths_related(x: str, y: str) -> bool:
+    """Gleicher Pfad oder einer liegt unterhalb des anderen ("" = Projektwurzel)."""
+    return (x == "" or y == "" or x == y
+            or y.startswith(x + "/") or x.startswith(y + "/"))
+
+
+def _literal_suffix(scope: str) -> str:
+    """Fester Rest des letzten Segments nach dem letzten Wildcard-Zeichen.
+
+    `docs/*.md` -> `.md`, `src/**` -> ``, `src/*/config.json` -> `config.json`.
+    """
+    last = scope.rstrip("/").split("/")[-1]
+    idx = max(last.rfind(ch) for ch in "*?]")
+    return last[idx + 1:]
+
+
 def scopes_overlap(a: str, b: str) -> bool:
     """True, wenn zwei Schreibbereiche dieselbe Datei treffen koennen.
 
     Pfade relativ zum Projekt, Globs erlaubt (`src/api/**`, `docs/*.md`),
-    ein abschliessendes `/` meint den ganzen Ordner.
+    ein abschliessendes `/` meint den ganzen Ordner. Ein fester Pfad, unter
+    dem ein anderer Bereich liegt, gilt ebenfalls als Ordner (`src` vs.
+    `src/app.py`). Bei zwei Globs ist die Pruefung konservativ: Konflikt,
+    sobald die festen Verzeichnis-Anteile zusammenhaengen und die festen
+    Dateiendungen sich nicht ausschliessen (`docs/*.md` vs. `docs/*.png`
+    ist kein Konflikt).
     """
     a, b = _normalize_scope(a), _normalize_scope(b)
     if not a or not b:
         return False
-    if a == b or fnmatch.fnmatch(a, b) or fnmatch.fnmatch(b, a):
+    if a == b:
         return True
-    base_a, base_b = _scope_base(a), _scope_base(b)
-    a_is_dir = a.endswith("/") or base_a != a
-    b_is_dir = b.endswith("/") or base_b != b
-    if a_is_dir and (base_a == "" or base_b == base_a or base_b.startswith(base_a + "/")):
+
+    glob_a, glob_b = _is_glob(a), _is_glob(b)
+
+    if not glob_a and not glob_b:
+        ta, tb = a.rstrip("/"), b.rstrip("/")
+        return ta == tb or tb.startswith(ta + "/") or ta.startswith(tb + "/")
+
+    if glob_a and glob_b:
+        if not _paths_related(_scope_base(a), _scope_base(b)):
+            return False
+        sa, sb = _literal_suffix(a), _literal_suffix(b)
+        if sa and sb and not (sa.endswith(sb) or sb.endswith(sa)):
+            return False
         return True
-    if b_is_dir and (base_b == "" or base_a == base_b or base_a.startswith(base_b + "/")):
+
+    literal, pattern = (b, a) if glob_a else (a, b)
+    lit = literal.rstrip("/")
+    if fnmatch.fnmatch(lit, pattern):
+        return True
+    base = _scope_base(pattern)
+    # Der feste Pfad ist ein Ordner, unter dem der Glob liegt.
+    if base == lit or base.startswith(lit + "/"):
+        return True
+    # Ausdruecklicher Ordner innerhalb des Glob-Bereichs: Dateien darin
+    # koennen passen.
+    if literal.endswith("/") and _paths_related(base, lit):
         return True
     return False
 
@@ -541,6 +586,17 @@ def self_test():
             ("src/api/", "src/apiclient/x.py", False),
             ("docs/*.md", "src/app.py", False),
             ("**", "irgendwas.txt", True),
+            ("src", "src/app.py", True),
+            ("docs/", "docs/*.md", True),
+            ("src/api/", "src/*.py", True),
+            ("tests/**", "tests/*.py", True),
+            # Fehlalarme vermeiden: fremde Endung, fremder Ordner
+            ("docs/*.md", "docs/logo.png", False),
+            ("*.md", "src/app.py", False),
+            ("docs/*.md", "docs/*.png", False),
+            ("**/*.test.ts", "src/app.py", False),
+            ("src/*/config.json", "src/*/*.md", False),
+            ("src/api/**", "docs/*.md", False),
         ]:
             assert scopes_overlap(a, b) is expected, f"scopes_overlap({a!r}, {b!r}) != {expected}"
             assert scopes_overlap(b, a) is expected, f"scopes_overlap({b!r}, {a!r}) != {expected}"
