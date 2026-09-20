@@ -33,6 +33,8 @@
 
 - [ ] Alle Agenten der Welle haben Ergebnisse geliefert
 - [ ] Ergebnisse gegen Akzeptanzkriterien geprueft
+- [ ] Abweichungen aus allen SUMMARY.md gesichtet und entschieden (uebernommen, korrigiert oder eskaliert)
+- [ ] Bei Respawn oder Agentenwechsel: Stopp des Vorgaengers nachgewiesen und dokumentiert
 - [ ] STATE.md aktualisiert
 - [ ] Alle Statuswechsel in AuditChain protokolliert
 - [ ] Fehlgeschlagene WPs: Reparatur oder Eskalation dokumentiert

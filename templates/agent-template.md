@@ -69,6 +69,7 @@ metadata:
 
 - [ ] Alle Akzeptanzkriterien aus TASK.md erfuellt
 - [ ] SUMMARY.md geschrieben mit: Was getan, Dateien geaendert, Tests bestanden
+- [ ] Abweichungen in der SUMMARY.md festgehalten: anders geloest als beauftragt, unerwartete Befunde, ungeloeste Risiken — je mit Beleg (oder ausdruecklich "Keine")
 - [ ] Keine Aenderungen ausserhalb des WP-Scopes
 - [ ] Keine offenen TODOs oder FIXME im Code
 - [ ] {{Zusaetzliches Kriterium}}

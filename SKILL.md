@@ -416,7 +416,7 @@ Fuer jede Welle:
 1. **Vorbereitung**: Manifeste laden, Vorbedingungen pruefen, STATE.md aktualisieren
 2. **AuditChain-Logging**: Jeder Statuswechsel wird automatisch in der Chain protokolliert (siehe 8.5)
 3. **Parallele Ausfuehrung**: Agenten spawnen (max 3 concurrent), jeder in frischem Kontext
-4. **Ergebnis-Sammlung**: Jeder Agent schreibt `.mission-forge/results/wave-N-wp-XXX/SUMMARY.md`
+4. **Ergebnis-Sammlung**: Jeder Agent schreibt `.mission-forge/results/wave-N-wp-XXX/SUMMARY.md` — mit Ergebnis, Belegen und einem Abschnitt `## Abweichungen` (anders geloest als beauftragt, unerwartete Befunde, ungeloeste Risiken), auch wenn alle Akzeptanzkriterien erfuellt sind
 5. **Wellen-Verifikation**: Gegen Akzeptanzkriterien pruefen, bei Fehler Reparatur (max 2 Versuche)
 6. **Gate-Check**: Alle DONE? -> Naechste Welle. FAILED? -> Eskalation
 
@@ -429,6 +429,8 @@ Einmal aktivierte Manifeste und Skills duerfen waehrend der Task-Ausfuehrung nic
 ### 8.3 Fehlerbehandlung
 
 Agent Fehler -> Reparatur-Versuch 1 -> Reparatur-Versuch 2 -> Eskalation Sub-Orchestrator -> Eskalation Mission-Orchestrator -> Eskalation User (entscheidet: Ueberspringen / Manuell / Abbrechen).
+
+Ein Ersatz-Agent startet nie, solange der Vorgaenger noch schreiben kann: Bei Timeout (E5) und beim Agentenwechsel am gleichen WP (E3) muss der Vorgaenger nachweislich gestoppt sein, sonst wird als BLOCKER eskaliert statt wiederholt. Zwei Agenten im selben `writes`-Bereich umgehen sonst zur Laufzeit die Schreibkonfliktpruefung aus 7.2.
 
 Siehe [references/error-handling.md](references/error-handling.md) fuer Details.
 
@@ -564,7 +566,7 @@ if not allowed:
 
 Pruefe fuer JEDE REQ-ID: WP zugeordnet? Ausgefuehrt? Akzeptanzkriterium geprueft? Dokumentiert? In AuditChain protokolliert?
 
-Suche nach Luecken: REQs ohne WP, WPs ohne Agent, WPs ohne Ergebnis, Agenten ohne Report, Skills ohne Aktivierung, Statuswechsel ohne Chain-Eintrag.
+Suche nach Luecken: REQs ohne WP, WPs ohne Agent, WPs ohne Ergebnis, Agenten ohne Report, SUMMARY.md ohne Abweichungs-Abschnitt, gemeldete Abweichungen ohne Entscheidung, Skills ohne Aktivierung, Statuswechsel ohne Chain-Eintrag.
 
 Erstelle `.mission-forge/VERIFICATION.md` basierend auf [templates/verification-template.md](templates/verification-template.md).
 

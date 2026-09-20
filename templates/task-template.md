@@ -73,6 +73,11 @@ Lies diese Dateien BEVOR du mit der Arbeit beginnst:
 - [x] Kriterium 1: PASSED
 - [x] Kriterium 2: PASSED
 
+## Abweichungen
+[Was anders gemacht wurde als in der TASK.md beschrieben, unerwartete Befunde und
+ungeloeste Risiken — je mit Beleg (Datei, Testausgabe, Fundstelle).
+Sonst "Keine". Auch bei erfuelltem Akzeptanzkriterium auszufuellen]
+
 ## Offene Punkte
 [Falls vorhanden — sonst "Keine"]
 ```
