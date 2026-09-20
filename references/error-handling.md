@@ -110,14 +110,14 @@ FEHLER KLASSIFIZIEREN (E1-E5)
      │
      ├── E1 (TRANSIENT) ──> Backoff + Retry (bis 5x)
      ├── E2 (CONTEXT_OVERFLOW) ──> WP splitten + Retry (bis 2x)
-     ├── E3 (QUALITY_FAILURE) ──> Feedback + Retry (bis 2x)
+     ├── E3 (QUALITY_FAILURE) ──> Feedback + Retry (bis 2x, Agentenwechsel erst nach Stopp-Nachweis)
      ├── E4 (BLOCKER) ──> Sofort eskalieren
-     └── E5 (TIMEOUT) ──> Respawn + Retry (bis 2x)
+     └── E5 (TIMEOUT) ──> Stopp-Nachweis + Respawn + Retry (bis 2x)
      │
      ▼ (nach Retries erschoepft)
 ESKALATION AN SUB-ORCHESTRATOR
      │ Kann er das Problem mit einem anderen Agent loesen?
-     ├── Ja ──> Neuer Agent, gleiches WP
+     ├── Ja ──> Neuer Agent, gleiches WP (erst nach Stopp-Nachweis)
      │
      ▼
 ESKALATION AN MISSION-ORCHESTRATOR

@@ -76,6 +76,8 @@ Lies diese Dateien BEVOR du mit der Arbeit beginnst:
 ## Abweichungen
 [Was anders gemacht wurde als in der TASK.md beschrieben, unerwartete Befunde und
 ungeloeste Risiken — je mit Beleg (Datei, Testausgabe, Fundstelle).
+Bei Respawn oder Agentenwechsel hier auch, woran der Stopp des Vorgaengers
+erkannt wurde.
 Sonst "Keine". Auch bei erfuelltem Akzeptanzkriterium auszufuellen]
 
 ## Offene Punkte
