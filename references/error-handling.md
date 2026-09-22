@@ -44,7 +44,7 @@ FEHLER KLASSIFIZIEREN
 
 #### E3 — QUALITY_FAILURE
 - **Versuch 1**: Gleicher Agent mit spezifischem Feedback zu den gescheiterten Kriterien
-- **Versuch 2**: Anderer Agent (hoehere Modell-Praeferenz) mit gleichem WP
+- **Versuch 2**: Anderer Agent (hoehere Modell-Praeferenz) mit gleichem WP — erst nach dem Stopp-Nachweis (siehe unten)
 - Danach: Eskalation an Mission-Orchestrator
 
 #### E4 — BLOCKER
@@ -56,9 +56,31 @@ FEHLER KLASSIFIZIEREN
   - Budget erschoepft → User-Freigabe einholen
 
 #### E5 — TIMEOUT
-- **Versuch 1**: Agent erneut spawnen mit denselben Inputs
+- **Versuch 1**: Agent erneut spawnen mit denselben Inputs — erst nach dem Stopp-Nachweis (siehe unten)
 - **Versuch 2**: WP vereinfachen oder aufteilen
 - Danach: Eskalation
+
+### Stopp-Nachweis vor dem Ersatz-Agenten
+
+Ein Agent, der nicht antwortet, ist nicht zwingend beendet. Startet der Orchestrator
+den Ersatz, waehrend der Vorgaenger noch laeuft, schreiben zwei Agenten in denselben
+`writes`-Bereich — genau die Kollision, die die Wellenplanung mit der
+Schreibkonfliktpruefung verhindert. Sie faellt hier nicht auf, weil beide zum selben
+WP gehoeren und der Konflikt erst zur Laufzeit entsteht.
+
+Deshalb gilt vor jedem Respawn (E5) und vor jedem Agentenwechsel am gleichen WP (E3):
+
+1. **Beenden nachweisen**: Der Vorgaenger ist nachweislich gestoppt (Prozess beendet
+   oder Session geschlossen) und schreibt nicht weiter in seinen `writes`-Bereich und
+   seinen `results/`-Ordner.
+2. **Nachweis festhalten**: Woran der Stopp erkannt wurde, kommt in die SUMMARY.md des
+   Ersatz-Versuchs unter `## Abweichungen`.
+3. **Sonst nicht wiederholen**: Laesst sich der Stopp nicht feststellen, wird der Fehler
+   als `BLOCKER` (E4) eskaliert statt blind wiederholt. Ein zweiter Schreiber auf
+   demselben Bereich verletzt das Zero-Drop-Prinzip stiller als jeder Timeout.
+
+Fuer `TRANSIENT` (E1) gilt das nicht: Dort schlaegt der Aufruf fehl, bevor der Agent
+arbeitet.
 
 ### Fehler-Reporting in SUMMARY.md
 
@@ -88,14 +110,14 @@ FEHLER KLASSIFIZIEREN (E1-E5)
      │
      ├── E1 (TRANSIENT) ──> Backoff + Retry (bis 5x)
      ├── E2 (CONTEXT_OVERFLOW) ──> WP splitten + Retry (bis 2x)
-     ├── E3 (QUALITY_FAILURE) ──> Feedback + Retry (bis 2x)
+     ├── E3 (QUALITY_FAILURE) ──> Feedback + Retry (bis 2x, Agentenwechsel erst nach Stopp-Nachweis)
      ├── E4 (BLOCKER) ──> Sofort eskalieren
-     └── E5 (TIMEOUT) ──> Respawn + Retry (bis 2x)
+     └── E5 (TIMEOUT) ──> Stopp-Nachweis + Respawn + Retry (bis 2x)
      │
      ▼ (nach Retries erschoepft)
 ESKALATION AN SUB-ORCHESTRATOR
      │ Kann er das Problem mit einem anderen Agent loesen?
-     ├── Ja ──> Neuer Agent, gleiches WP
+     ├── Ja ──> Neuer Agent, gleiches WP (erst nach Stopp-Nachweis)
      │
      ▼
 ESKALATION AN MISSION-ORCHESTRATOR
@@ -135,6 +157,7 @@ Wenn eine Mission vorzeitig beendet werden muss:
 | Fehler                         | Kategorie | Ursache                          | Praevention                        |
 |--------------------------------|-----------|----------------------------------|------------------------------------|
 | Agent liefert kein Ergebnis    | E2 / E5   | Context-Limit oder Timeout       | WP weiter zerlegen                 |
+| Zwei Schreiber auf einem WP    | E5 / E3   | Ersatz gestartet, Vorgaenger lief noch | Stopp-Nachweis vor dem Ersatz-Agenten |
 | Falsches Ergebnis-Format       | E3        | Unklare Anweisungen in TASK.md   | Konkrete Beispiele in TASK.md      |
 | Agent arbeitet an falschem WP  | E3        | Unklare Scope-Abgrenzung         | Explizite Nicht-Ziele in TASK.md   |
 | Deadlock zwischen Wellen       | E4        | Fehlende Abhaengigkeit im Graph  | Pre-Flight DAG-Validierung         |
